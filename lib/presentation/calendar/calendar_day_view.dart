@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -109,9 +108,15 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   IconData _bayIcon(int index) => _bayIcons[index % _bayIcons.length];
 
+  /// Прозрачность линий сетки во времени и в колонках постов.
+  /// В тёмной теме делаем сетку светлее (0.45 вместо 0.25), чтобы линии
+  /// времени и границы постов были хорошо видны на тёмном фоне.
+  double _gridOpacity(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.25;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final border = Border.all(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5);
     return Column(
       children: [
         // Блок 1: дата — с нижней границей
@@ -319,6 +324,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   }
 
   Widget _buildTimeColumn(BuildContext context) {
+    final gridOpacity = _gridOpacity(context);
     return SizedBox(
       width: _timeColWidth,
       child: Column(
@@ -334,7 +340,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
               border: Border(
                 right: BorderSide(color: AppTheme.borderOf(context), width: 0.5),
                 bottom: BorderSide(
-                    color: AppTheme.borderOf(context).withOpacity(0.25), width: 0.5),
+                    color: AppTheme.borderOf(context).withOpacity(gridOpacity), width: 0.5),
               ),
             ),
             child: Text(
@@ -352,6 +358,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   }
 
   Widget _buildBayColumn(BuildContext context, List<models.Appointment> appts) {
+    final gridOpacity = _gridOpacity(context);
     return Stack(
       children: [
         Column(
@@ -374,7 +381,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                        color: AppTheme.borderOf(context).withOpacity(0.25),
+                        color: AppTheme.borderOf(context).withOpacity(gridOpacity),
                         width: 0.5),
                     right: BorderSide(color: AppTheme.borderOf(context), width: 0.5),
                   ),
@@ -482,7 +489,6 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   }
 
   void _showStatusMenu(BuildContext context, models.Appointment a) {
-    final color = AppTheme.statusColor(a.status);
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surfaceOf(context),

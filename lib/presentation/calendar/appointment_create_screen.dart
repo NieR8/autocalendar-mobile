@@ -409,123 +409,146 @@ class _AppointmentCreateScreenState
       text: '${initial.hour.toString().padLeft(2, '0')}:${initial.minute.toString().padLeft(2, '0')}',
     );
 
-    await showModalBottomSheet(
+    await showModalBottomSheet<TimeOfDay>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (sheetContext) => Container(
-        height: 420,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          // Ключ: поднимаем sheet когда клавиатура открывается.
+          // Без этого клавиатура перекрывает всё окно bottom sheet.
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            height: 420,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(sheetContext),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  ),
-                  child: const Text('Отмена', style: TextStyle(fontSize: 15)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      ),
+                      child: const Text('Отмена', style: TextStyle(fontSize: 15)),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext, result),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      ),
+                      child: const Text('Готово', style: TextStyle(fontSize: 15)),
+                    ),
+                  ],
                 ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(sheetContext, result),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    isStart ? 'Начало' : 'Конец',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primary,
+                    ),
                   ),
-                  child: const Text('Готово', style: TextStyle(fontSize: 15)),
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.keyboard, size: 18, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Вручную:',
+                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: inputCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 5,
+                        inputFormatters: [
+                          FilteringTextInputFormatter(RegExp(r'[0-9:]'), allow: true),
+                        ],
+                        decoration: const InputDecoration(
+                          hintText: 'ЧЧ:ММ',
+                          isDense: true,
+                          counterText: '',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        onSubmitted: (val) {
+                          _applyManualTime(val, inputCtrl, (t) {
+                            result = t;
+                          }, context);
+                          // Закрываем sheet с новым временем (как "Готово")
+                          Navigator.pop(sheetContext, result);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () {
+                        _applyManualTime(inputCtrl.text, inputCtrl, (t) {
+                          result = t;
+                        }, context);
+                        // FIX: закрываем sheet с валидированным временем.
+                        // Раньше кнопка "Применить" только обновляла `result`
+                        // локально, но не применяла к итоговому значению.
+                        Navigator.pop(sheetContext, result);
+                      },
+                      child: const Text('Применить'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Рабочее время: 8:00 - 21:00',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textMuteOf(context)),
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: CupertinoTheme(
+                    data: CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 22,
+                        ),
+                      ),
+                      primaryColor: AppTheme.primary,
+                    ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      use24hFormat: true,
+                      initialDateTime: DateTime(2020, 1, 1, result.hour, result.minute),
+                      onDateTimeChanged: (dt) {
+                        result = TimeOfDay(hour: dt.hour, minute: dt.minute);
+                        inputCtrl.text = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                isStart ? 'Начало' : 'Конец',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.keyboard, size: 18),
-                const SizedBox(width: 8),
-                const Text('Вручную:', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 90,
-                  child: TextField(
-                    controller: inputCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 5,
-                    inputFormatters: [
-                      FilteringTextInputFormatter(RegExp(r'[0-9:]'), allow: true),
-                    ],
-                    decoration: const InputDecoration(
-                      hintText: 'ЧЧ:ММ',
-                      isDense: true,
-                      counterText: '',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    onSubmitted: (val) => _applyManualTime(val, inputCtrl, (t) {
-                      result = t;
-                    }, sheetContext),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => _applyManualTime(inputCtrl.text, inputCtrl, (t) {
-                    result = t;
-                  }, sheetContext),
-                  child: const Text('Применить'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Рабочее время: 8:00 - 21:00',
-              style: TextStyle(fontSize: 11, color: AppTheme.textMuteOf(context)),
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            Expanded(
-              child: CupertinoTheme(
-                data: CupertinoThemeData(
-                  textTheme: CupertinoTextThemeData(
-                    dateTimePickerTextStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 22,
-                    ),
-                  ),
-                  primaryColor: AppTheme.primary,
-                ),
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: true,
-                  initialDateTime: DateTime(2020, 1, 1, initial.hour, initial.minute),
-                  onDateTimeChanged: (dt) {
-                    result = TimeOfDay(hour: dt.hour, minute: dt.minute);
-                    inputCtrl.text = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-                  },
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     ).then((selected) {
       inputCtrl.dispose();
-      if (selected is TimeOfDay) {
+      if (selected != null) {
         setState(() {
           if (isStart) {
             _startTime = selected;
@@ -589,33 +612,41 @@ class _AppointmentCreateScreenState
 
     String vehicleId = _vehicleId;
 
-    // FIX: две независимые ветки для каталога:
-    //   1) Выбран существующий авто в dropdown → используем его ID, каталог не трогаем
-    //   2) Dropdown пустой + заполнены поля "для нового авто" → создаём новое авто
-    // Раньше было: если _makeCtrl не пустой → всегда update/insert авто в каталоге,
-    // что при редактировании апта перезаписывало выбранное авто данными из полей
-    // и создавало дубликаты в каталоге (баг: редактирование апта ломает каталог).
-    if (_vehicleId.isNotEmpty) {
-      // Выбран существующий авто — используем его напрямую, каталог не трогаем.
-      // Пользователь должен редактировать авто в Каталогах, а не через форму апта.
-    } else if (_makeCtrl.text.trim().isNotEmpty) {
-      // Выбран "новый авто" — создаём и используем его ID
-      try {
-        final catApi = ref.read(catalogApiProvider);
-        final newV = await catApi.createVehicle(Vehicle(
-          id: '',
-          shopId: widget.existingAppointment?.shopId ?? '',
-          make: _makeCtrl.text.trim(),
-          model: _modelCtrl.text.trim(),
-          customerName: _clientNameCtrl.text.trim(),
-          customerPhone: _clientPhoneCtrl.text.trim(),
-        ));
-        vehicleId = newV.id;
-      } catch (e) {
-        _snack('Ошибка сохранения авто: $e');
-        return;
+    // Логика выбора авто:
+    //   1) Если заполнена марка в поле "для нового авто" → ищем совпадение
+    //      по марке БЕЗ учёта регистра. Нашли — используем это авто
+    //      (не изменяем его данные). Не нашли — создаём новое.
+    //   2) Иначе, если выбран авто в dropdown → используем его ID.
+    // Приоритет у поля марки: если и dropdown выбран, и марка заполнена —
+    // марка побеждает (это явный ввод пользователя "хочу это авто").
+    if (_makeCtrl.text.trim().isNotEmpty) {
+      final makeToFind = _makeCtrl.text.trim().toLowerCase();
+      final existingIdx = widget.vehicles.indexWhere(
+        (v) => v.make.toLowerCase() == makeToFind,
+      );
+      if (existingIdx >= 0) {
+        // Есть авто с такой маркой — используем его БЕЗ изменения данных.
+        vehicleId = widget.vehicles[existingIdx].id;
+      } else {
+        // Авто с такой маркой нет — создаём новое.
+        try {
+          final catApi = ref.read(catalogApiProvider);
+          final newV = await catApi.createVehicle(Vehicle(
+            id: '',
+            shopId: widget.existingAppointment?.shopId ?? '',
+            make: _makeCtrl.text.trim(),
+            model: _modelCtrl.text.trim(),
+            customerName: _clientNameCtrl.text.trim(),
+            customerPhone: _clientPhoneCtrl.text.trim(),
+          ));
+          vehicleId = newV.id;
+        } catch (e) {
+          _snack('Ошибка сохранения авто: $e');
+          return;
+        }
       }
     }
+    // Иначе (_makeCtrl пуст) — используем _vehicleId из dropdown.
 
     if (!mounted) return;
 
