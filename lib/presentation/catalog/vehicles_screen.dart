@@ -107,7 +107,31 @@ class _VehiclesScreenState extends ConsumerState<VehiclesScreen> {
   }
 
   Future<void> _delete(Vehicle v) async {
-    _list.removeWhere((e) => e.id == v.id);
-    setState(() {});
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Удалить авто?'),
+        content: Text('"${v.displayLabel}" будет удалён из каталога.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Отмена')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref.read(catalogApiProvider).deleteVehicle(v.id);
+      if (mounted) _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось удалить авто (возможно, оно используется в записях): $e')),
+        );
+      }
+    }
   }
 }
