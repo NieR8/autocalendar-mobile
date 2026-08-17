@@ -1,0 +1,2 @@
+dependency_overrides:
+  objective_c: ^9.5.0

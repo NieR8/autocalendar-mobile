@@ -1,0 +1,71 @@
+name: autocalendar_app
+description: "AutoCalendar — planner for auto service shops"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # HTTP
+  dio: ^5.7.0
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Local DB (offline sync) — отключено для web build (нужен native sqlite3)
+  # drift: ^2.20.0
+  # sqlite3_flutter_libs: ^0.5.24
+
+  # Secure storage (JWT)
+  flutter_secure_storage: ^9.2.2
+
+  # Calendar (Syncfusion Community License: < $1M revenue)
+  syncfusion_flutter_calendar: ^34.0.0
+
+  # Network monitoring (offline detection)
+  connectivity_plus: ^6.0.5
+
+  # Background sync — Android-only, отключено для web
+  # workmanager: ^0.5.2
+
+  # Codegen annotations
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # i18n / date formatting
+  intl: ^0.20.2
+
+  # Google Fonts (Fraunces for Warm Workshop theme)
+  google_fonts: ^6.2.1
+
+  # Локализация (русский язык для Material + Syncfusion)
+  flutter_localizations:
+    sdk: flutter
+  syncfusion_localizations: ^34.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Codegen
+  build_runner: ^2.4.13
+  # drift_dev: ^2.20.0  # отключено для web
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+
+  # Riverpod lint
+  custom_lint: ^0.7.3
+  riverpod_lint: ^2.3.10
+
+flutter:
+  uses-material-design: true
