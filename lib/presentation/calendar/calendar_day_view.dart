@@ -89,11 +89,14 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   int get _totalSlots => (_endHour - _startHour) * 2;
 
+  /// Апты, которые пересекаются с выбранным днём (включая многосуточные).
+  /// FIX: раньше фильтр был только по `startAt.day == selectedDay.day` —
+  /// не показывал многосуточные апты на днях после дня начала.
+  /// Теперь используем _apptRenderForDay != null → апт попадает в список,
+  /// если его [startAt, endAt) пересекается с рабочими часами дня [8:00, 21:00).
   List<models.Appointment> get _dayAppointments =>
       widget.appointments.where((a) {
-        return a.startAt.year == widget.selectedDay.year &&
-            a.startAt.month == widget.selectedDay.month &&
-            a.startAt.day == widget.selectedDay.day;
+        return _apptRenderForDay(a, widget.selectedDay) != null;
       }).toList();
 
   double _apptTop(models.Appointment a) {
@@ -143,32 +146,64 @@ class _CalendarDayViewState extends State<CalendarDayView> {
     return Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.25;
   }
 
+  /// Фон для всего компонента Day View.
+  /// Светлая тема: #FFFFFF (чисто белый, как просил пользователь).
+  /// Тёмная тема: обычный darkBg (черный #000000) — по умолчанию.
+  Color _dayViewBackground(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppTheme.darkBg
+        : const Color(0xFFFFFFFF);
+  }
+
+  /// Фон для сетки с аптами (time column + bay columns).
+  /// Светлая тема: #FFFFFF (чисто белый).
+  /// Тёмная тема: #333333 (тёмно-серый — контраст для линий сетки и карточек).
+  Color _gridBackground(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF333333)
+        : const Color(0xFFFFFFFF);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Блок 1: дата — с нижней границей
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceOf(context),
-            border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
+    final bgColor = _dayViewBackground(context);
+    final gridBg = _gridBackground(context);
+    return Container(
+      color: bgColor,
+      child: Column(
+        children: [
+          // Блок 1: дата — с нижней границей
+          Container(
+            color: bgColor,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
+              ),
+              child: _buildDateHeader(context),
+            ),
           ),
-          child: _buildDateHeader(context),
-        ),
-        // Блок 2: скроллер дней — с отступами сверху/снизу + нижняя граница
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceOf(context),
-            border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
+          // Блок 2: скроллер дней — с отступами сверху/снизу + нижняя граница
+          Container(
+            color: bgColor,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
+              ),
+              child: _buildWeekScroller(context),
+            ),
           ),
-          child: _buildWeekScroller(context),
-        ),
-        // Блок 3: заголовки постов — с нижней границей
-        _buildBayHeaders(context),
-        // Блок 4: таблица
-        Expanded(child: _buildCalendarGrid(context)),
-      ],
+          // Блок 3: заголовки постов — с нижней границей (остается surface2 для контраста)
+          _buildBayHeaders(context),
+          // Блок 4: сетка с аптами (gridBackground в контейнере)
+          Expanded(
+            child: Container(
+              color: gridBg,
+              child: _buildCalendarGrid(context),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
