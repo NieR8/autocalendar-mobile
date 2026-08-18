@@ -99,17 +99,6 @@ class _CalendarDayViewState extends State<CalendarDayView> {
         return _apptRenderForDay(a, widget.selectedDay) != null;
       }).toList();
 
-  double _apptTop(models.Appointment a) {
-    // Для многосуточных аптов используется только _apptRenderForDay
-    final mins = a.startAt.hour * 60 + a.startAt.minute - _startHour * 60;
-    return (mins / 30) * _slotHeight;
-  }
-
-  double _apptHeight(models.Appointment a) {
-    final dur = a.endAt.difference(a.startAt);
-    return (dur.inMinutes / 30) * _slotHeight - 2;
-  }
-
   /// Рендер карточки многосуточного апта для ОДНОГО конкретного дня.
   /// Возвращает (top, height, isFirst, isLast) или null если апт не пересекается с днём.
   _ApptDayRender? _apptRenderForDay(models.Appointment a, DateTime day) {
@@ -139,15 +128,24 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   IconData _bayIcon(int index) => _bayIcons[index % _bayIcons.length];
 
-  /// Прозрачность линий сетки во времени и в колонках постов.
-  /// В тёмной теме делаем сетку светлее (0.45 вместо 0.25), чтобы линии
-  /// времени и границы постов были хорошо видны на тёмном фоне.
+  /// Прозрачность линий сетки в колонках постов и в time column.
+  /// Светлая тема: тонкие линии поверх белого фона (0.4 opacity на border color).
+  /// Тёмная тема: чёрные линии с opacity 1.0 — явный чёрный цвет на сером (#1A1A1A).
   double _gridOpacity(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark ? 0.45 : 0.25;
+    return Theme.of(context).brightness == Brightness.dark ? 1.0 : 0.4;
+  }
+
+  /// Цвет линий сетки.
+  /// Светлая тема: border color (светло-серый) с opacity.
+  /// Тёмная тема: чёрный (#000000) — как и просил пользователь.
+  Color _gridLineColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.black
+        : AppTheme.borderOf(context);
   }
 
   /// Фон для всего компонента Day View.
-  /// Светлая тема: #FFFFFF (чисто белый, как просил пользователь).
+  /// Светлая тема: #FFFFFF (чисто белый).
   /// Тёмная тема: обычный darkBg (черный #000000) — по умолчанию.
   Color _dayViewBackground(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
@@ -157,10 +155,10 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   /// Фон для сетки с аптами (time column + bay columns).
   /// Светлая тема: #FFFFFF (чисто белый).
-  /// Тёмная тема: #333333 (тёмно-серый — контраст для линий сетки и карточек).
+  /// Тёмная тема: #1A1A1A (полутон между серым и чёрным — темнее чем был #333333).
   Color _gridBackground(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF333333)
+        ? const Color(0xFF1A1A1A)
         : const Color(0xFFFFFFFF);
   }
 
@@ -312,11 +310,12 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   }
 
   Widget _buildBayHeaders(BuildContext context) {
+    final lineColor = _gridLineColor(context);
     return Container(
       height: _bayHeaderHeight,
       decoration: BoxDecoration(
         color: AppTheme.surface2Of(context),
-        border: Border(bottom: BorderSide(color: AppTheme.borderOf(context), width: 1)),
+        border: Border(bottom: BorderSide(color: lineColor, width: 1)),
       ),
       child: Row(
         children: [
@@ -328,7 +327,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
               child: Container(
                 decoration: BoxDecoration(
                   border: Border(
-                    right: BorderSide(color: AppTheme.borderOf(context), width: 0.5),
+                    right: BorderSide(color: lineColor, width: 0.5),
                   ),
                 ),
                 child: Column(
@@ -388,6 +387,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   Widget _buildTimeColumn(BuildContext context) {
     final gridOpacity = _gridOpacity(context);
+    final lineColor = _gridLineColor(context);
     return SizedBox(
       width: _timeColWidth,
       child: Column(
@@ -401,16 +401,18 @@ class _CalendarDayViewState extends State<CalendarDayView> {
             alignment: Alignment.topRight,
             decoration: BoxDecoration(
               border: Border(
-                right: BorderSide(color: AppTheme.borderOf(context), width: 0.5),
+                right: BorderSide(color: lineColor, width: 0.5),
                 bottom: BorderSide(
-                    color: AppTheme.borderOf(context).withOpacity(gridOpacity), width: 0.5),
+                    color: lineColor.withOpacity(gridOpacity), width: 0.5),
               ),
             ),
             child: Text(
               isHour ? '$hour:00' : '',
               style: TextStyle(
                 fontSize: 10,
-                color: AppTheme.textMuteOf(context),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withOpacity(0.85)
+                    : AppTheme.textMuteOf(context),
                 fontWeight: isHour ? FontWeight.w500 : FontWeight.w400,
               ),
             ),
@@ -422,6 +424,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
 
   Widget _buildBayColumn(BuildContext context, List<models.Appointment> appts) {
     final gridOpacity = _gridOpacity(context);
+    final lineColor = _gridLineColor(context);
     return Stack(
       children: [
         Column(
@@ -443,10 +446,8 @@ class _CalendarDayViewState extends State<CalendarDayView> {
                 height: _slotHeight,
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                        color: AppTheme.borderOf(context).withOpacity(gridOpacity),
-                        width: 0.5),
-                    right: BorderSide(color: AppTheme.borderOf(context), width: 0.5),
+                    bottom: BorderSide(color: lineColor.withOpacity(gridOpacity), width: 0.5),
+                    right: BorderSide(color: lineColor, width: 0.5),
                   ),
                 ),
               ),

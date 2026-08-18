@@ -19,15 +19,15 @@ class App extends ConsumerWidget {
     final isDark = themeMode == ThemeMode.dark;
 
     // AnnotatedRegion пересоздаётся при смене темы — статус бар красится заново.
-    // Светлая: #F0F4F8 + светлые иконки (невидимы)
-    // Тёмная:  #1C1C1E + тёмные иконки (невидимы)
+    // Светлая: кристально белый #FFFFFF + ТЁМНЫЕ иконки (чтобы на белом были видны)
+    // Тёмная:  чёрный #000000 + светлые иконки (яркие на чёрном)
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: isDark ? AppTheme.darkBg : AppTheme.bg,
-        statusBarIconBrightness: isDark ? Brightness.dark : Brightness.light,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
         systemNavigationBarColor: isDark ? AppTheme.darkSurface : AppTheme.surface,
-        systemNavigationBarIconBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       ),
       child: MaterialApp.router(
         title: 'AutoCalendar',

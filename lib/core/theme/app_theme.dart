@@ -11,10 +11,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // === Цвета ===
-  static const Color bg = Color(0xFFF0F4F8);
-  static const Color surface = Color(0xFFF0F4F8);
-  static const Color surface2 = Color(0xFFE2E8F0);
-  static const Color border = Color(0xFFCBD5E1);
+  // Кристально белый фон для всей светлой темы (status bar, scaffold, surface).
+  static const Color bg = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surface2 = Color(0xFFF5F7FA);
+  static const Color border = Color(0xFFE2E8F0);
   static const Color text = Color(0xFF1E293B);
   static const Color textDim = Color(0xFF64748B);
   static const Color textMute = Color(0xFF94A3B8);
