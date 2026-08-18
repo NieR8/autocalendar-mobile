@@ -300,6 +300,11 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
       _snack('Конец должен быть позже старта');
       return;
     }
+    final duration = _end.difference(_start);
+    if (duration.inDays > 7 || (duration.inDays == 7 && duration.inMinutes % (24 * 60) > 0)) {
+      _snack('Максимальная длительность ремонта — 7 дней');
+      return;
+    }
 
     String vehicleId = _vehicleId;
 

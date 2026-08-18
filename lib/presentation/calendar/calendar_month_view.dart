@@ -43,16 +43,19 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
 
   DateTime _firstOfMonth(DateTime d) => DateTime(d.year, d.month, 1);
 
-  List<models.Appointment> _appointmentsForDay(DateTime date) {
+  /// Все апты которые пересекаются с этим днём (включая многосуточные).
+  /// Апт считается находящимся на дне, если [dayStart, dayEnd) пересекается с [appt.startAt, appt.endAt).
+  List<models.Appointment> _appointmentsOnDay(DateTime date) {
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
     return widget.appointments.where((a) {
-      return a.startAt.year == date.year &&
-          a.startAt.month == date.month &&
-          a.startAt.day == date.day;
+      // Есть пересечение если: a.startAt < dayEnd AND a.endAt > dayStart
+      return a.startAt.isBefore(dayEnd) && a.endAt.isAfter(dayStart);
     }).toList();
   }
 
   Color _dayColor(DateTime date, bool isDark) {
-    final appts = _appointmentsForDay(date);
+    final appts = _appointmentsOnDay(date);
     if (appts.isEmpty) return Colors.transparent;
 
     bool hasProgress = appts.any((a) => a.status == 'in_progress');
@@ -72,7 +75,7 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
   }
 
   Color _dayBorderColor(DateTime date, bool isDark) {
-    final appts = _appointmentsForDay(date);
+    final appts = _appointmentsOnDay(date);
     if (appts.isEmpty) return Colors.transparent;
 
     bool hasProgress = appts.any((a) => a.status == 'in_progress');
@@ -173,7 +176,8 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
                 final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
                 final dayColor = _dayColor(date, isDark);
                 final dayBorder = _dayBorderColor(date, isDark);
-                final apptCount = _appointmentsForDay(date).length;
+                final apptCount = _appointmentsOnDay(date).length;
+                final apptsForDots = _appointmentsOnDay(date);
 
                 return GestureDetector(
                   onTap: () => widget.onDayChanged(date),
@@ -210,11 +214,11 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
                             children: List.generate(
                               apptCount > 3 ? 3 : apptCount,
                               (i) => Container(
-                                width: 5,
-                                height: 5,
-                                margin: const EdgeInsets.symmetric(horizontal: 1),
+                                width: 4,
+                                height: 4,
+                                margin: const EdgeInsets.symmetric(horizontal: 0.5),
                                 decoration: BoxDecoration(
-                                  color: _dotColor(_appointmentsForDay(date)[i].status, isDark),
+                                  color: _dotColor(apptsForDots[i].status, isDark),
                                   shape: BoxShape.circle,
                                 ),
                               ),

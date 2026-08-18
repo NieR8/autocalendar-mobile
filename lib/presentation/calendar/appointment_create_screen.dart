@@ -1,6 +1,4 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -31,9 +29,8 @@ class AppointmentCreateScreen extends ConsumerStatefulWidget {
 
 class _AppointmentCreateScreenState
     extends ConsumerState<AppointmentCreateScreen> {
-  late DateTime _date;
-  late TimeOfDay _startTime;
-  late TimeOfDay _endTime;
+  late DateTime _startAt;
+  late DateTime _endAt;
   String _bayId = '';
   String _vehicleId = '';
   String _status = 'planned';
@@ -53,10 +50,8 @@ class _AppointmentCreateScreenState
   void initState() {
     super.initState();
     final a = widget.existingAppointment;
-    _date = a?.startAt ?? widget.initialDate;
-    _startTime = TimeOfDay.fromDateTime(a?.startAt ?? widget.initialDate);
-    _endTime = TimeOfDay.fromDateTime(
-        a?.endAt ?? widget.initialDate.add(const Duration(hours: 1)));
+    _startAt = a?.startAt ?? widget.initialDate;
+    _endAt = a?.endAt ?? widget.initialDate.add(const Duration(hours: 1));
     _bayId = a?.bayId ?? (widget.bays.isNotEmpty ? widget.bays.first.id : '');
     _vehicleId = a?.vehicleId ?? '';
     _status = a?.status ?? 'planned';
@@ -104,15 +99,9 @@ class _AppointmentCreateScreenState
     super.dispose();
   }
 
-  DateTime get _startDateTime => DateTime(
-        _date.year, _date.month, _date.day,
-        _startTime.hour, _startTime.minute,
-      );
+  DateTime get _startDateTime => _startAt;
 
-  DateTime get _endDateTime => DateTime(
-        _date.year, _date.month, _date.day,
-        _endTime.hour, _endTime.minute,
-      );
+  DateTime get _endDateTime => _endAt;
 
   @override
   Widget build(BuildContext context) {
@@ -162,22 +151,12 @@ class _AppointmentCreateScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _sectionLabel('Дата'),
-                    _dateTile(),
+                    _sectionLabel('Начало'),
+                    _dateTimeTile(_startAt, isStart: true),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('Время'),
-                    Row(
-                      children: [
-                        Expanded(child: _timeTile('Начало', _startTime, true)),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(Icons.arrow_forward,
-                              color: AppTheme.textMute, size: 20),
-                        ),
-                        Expanded(child: _timeTile('Конец', _endTime, false)),
-                      ],
-                    ),
+                    _sectionLabel('Конец'),
+                    _dateTimeTile(_endAt, isStart: false),
                     const SizedBox(height: _fieldSpacing),
 
                     _sectionLabel('Пост'),
@@ -326,9 +305,9 @@ class _AppointmentCreateScreenState
     );
   }
 
-  Widget _dateTile() {
+  Widget _dateTimeTile(DateTime dt, {required bool isStart}) {
     return InkWell(
-      onTap: _pickDate,
+      onTap: () => _pickDateTime(isStart: isStart),
       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -339,51 +318,32 @@ class _AppointmentCreateScreenState
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              DateFormat('d MMMM yyyy', 'ru_RU').format(_date),
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.textOf(context)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('d MMMM yyyy', 'ru_RU').format(dt),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.textOf(context)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('H:mm').format(dt),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textDimOf(context)),
+                ),
+              ],
             ),
-            const Icon(Icons.calendar_today, size: 18, color: AppTheme.primary),
+            Icon(Icons.edit, size: 18, color: AppTheme.primary),
           ],
         ),
       ),
     );
   }
 
-  Widget _timeTile(String label, TimeOfDay time, bool isStart) {
-    return InkWell(
-      onTap: () => _pickWheelTime(isStart),
-      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.borderOf(context)),
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textDimOf(context))),
-            const SizedBox(width: 6),
-            Text(
-              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textOf(context)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _bayIcon(int index) {
-    const icons = [Icons.build, Icons.search, Icons.tire_repair, Icons.bolt, Icons.car_repair];
-    return icons[index % icons.length];
-  }
-
-  Future<void> _pickDate() async {
+  Future<void> _pickDateTime({required bool isStart}) async {
+    final initial = isStart ? _startAt : _endAt;
     final date = await showDatePicker(
       context: context,
-      initialDate: _date,
+      initialDate: initial,
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 90)),
       locale: const Locale('ru', 'RU'),
@@ -399,200 +359,44 @@ class _AppointmentCreateScreenState
         );
       },
     );
-    if (date != null) setState(() => _date = date);
-  }
+    if (date == null) return;
+    if (!mounted) return;
 
-  Future<void> _pickWheelTime(bool isStart) async {
-    final initial = isStart ? _startTime : _endTime;
-    TimeOfDay result = initial;
-    final inputCtrl = TextEditingController(
-      text: '${initial.hour.toString().padLeft(2, '0')}:${initial.minute.toString().padLeft(2, '0')}',
-    );
-
-    await showModalBottomSheet<TimeOfDay>(
+    final time = await showTimePicker(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      initialTime: TimeOfDay.fromDateTime(initial),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
       ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          // Ключ: поднимаем sheet когда клавиатура открывается.
-          // Без этого клавиатура перекрывает всё окно bottom sheet.
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            height: 420,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      ),
-                      child: const Text('Отмена', style: TextStyle(fontSize: 15)),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(sheetContext, result),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      ),
-                      child: const Text('Готово', style: TextStyle(fontSize: 15)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    isStart ? 'Начало' : 'Конец',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(Icons.keyboard, size: 18, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Вручную:',
-                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 90,
-                      child: TextField(
-                        controller: inputCtrl,
-                        keyboardType: TextInputType.number,
-                        maxLength: 5,
-                        inputFormatters: [
-                          FilteringTextInputFormatter(RegExp(r'[0-9:]'), allow: true),
-                        ],
-                        decoration: const InputDecoration(
-                          hintText: 'ЧЧ:ММ',
-                          isDense: true,
-                          counterText: '',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                        ),
-                        onSubmitted: (val) {
-                          _applyManualTime(val, inputCtrl, (t) {
-                            result = t;
-                          }, context);
-                          // Закрываем sheet с новым временем (как "Готово")
-                          Navigator.pop(sheetContext, result);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () {
-                        _applyManualTime(inputCtrl.text, inputCtrl, (t) {
-                          result = t;
-                        }, context);
-                        // FIX: закрываем sheet с валидированным временем.
-                        // Раньше кнопка "Применить" только обновляла `result`
-                        // локально, но не применяла к итоговому значению.
-                        Navigator.pop(sheetContext, result);
-                      },
-                      child: const Text('Применить'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Рабочее время: 8:00 - 21:00',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textMuteOf(context)),
-                ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: CupertinoTheme(
-                    data: CupertinoThemeData(
-                      textTheme: CupertinoTextThemeData(
-                        dateTimePickerTextStyle: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 22,
-                        ),
-                      ),
-                      primaryColor: AppTheme.primary,
-                    ),
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      use24hFormat: true,
-                      initialDateTime: DateTime(2020, 1, 1, result.hour, result.minute),
-                      onDateTimeChanged: (dt) {
-                        result = TimeOfDay(hour: dt.hour, minute: dt.minute);
-                        inputCtrl.text = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ).then((selected) {
-      inputCtrl.dispose();
-      if (selected != null) {
-        setState(() {
-          if (isStart) {
-            _startTime = selected;
-            final startMins = selected.hour * 60 + selected.minute;
-            final endMins = _endTime.hour * 60 + _endTime.minute;
-            if (endMins <= startMins) {
-              _endTime = TimeOfDay(
-                hour: (selected.hour + 1).clamp(8, 21),
-                minute: selected.minute,
-              );
-            }
-          } else {
-            _endTime = selected;
-          }
-        });
+    );
+    if (time == null) return;
+
+    final newDt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() {
+      if (isStart) {
+        _startAt = newDt;
+        // Если end <= start (или не позже часа) — авто-сдвигаем
+        if (!_endAt.isAfter(_startAt)) {
+          _endAt = _startAt.add(const Duration(hours: 1));
+        }
+      } else {
+        // Авто-сдвиг: если на той же дате end < start — сдвигаем end на +1 день
+        if (date.year == _startAt.year &&
+            date.month == _startAt.month &&
+            date.day == _startAt.day &&
+            newDt.isBefore(_startAt)) {
+          _endAt = newDt.add(const Duration(days: 1));
+        } else {
+          _endAt = newDt;
+        }
       }
     });
   }
 
-  void _applyManualTime(String val, TextEditingController ctrl,
-      void Function(TimeOfDay) onValid, BuildContext sheetContext) {
-    final parts = val.split(':');
-    if (parts.length != 2) {
-      ScaffoldMessenger.of(sheetContext).showSnackBar(
-        const SnackBar(content: Text('Формат: ЧЧ:ММ, например 14:30')),
-      );
-      return;
-    }
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) {
-      ScaffoldMessenger.of(sheetContext).showSnackBar(
-        const SnackBar(content: Text('Только цифры: ЧЧ:ММ')),
-      );
-      return;
-    }
-    if (h < 8 || h > 20 || m < 0 || m >= 60) {
-      ScaffoldMessenger.of(sheetContext).showSnackBar(
-        const SnackBar(content: Text('Рабочее время: 8:00 - 21:00')),
-      );
-      return;
-    }
-    onValid(TimeOfDay(hour: h, minute: m));
-    ctrl.text = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  IconData _bayIcon(int index) {
+    // Все посты — подъёмники, одна иконка.
+    return Icons.car_repair;
   }
 
   void _submit() async {
@@ -604,9 +408,13 @@ class _AppointmentCreateScreenState
       _snack('Выберите авто из списка или введите марку нового');
       return;
     }
-    if (_endTime.hour * 60 + _endTime.minute <=
-        _startTime.hour * 60 + _startTime.minute) {
-      _snack('Время окончания должно быть позже начала');
+    if (!_endAt.isAfter(_startAt)) {
+      _snack('Конец должен быть позже начала');
+      return;
+    }
+    final duration = _endAt.difference(_startAt);
+    if (duration.inDays > 7 || (duration.inDays == 7 && duration.inMinutes % (24 * 60) > 0)) {
+      _snack('Максимальная длительность ремонта — 7 дней');
       return;
     }
 

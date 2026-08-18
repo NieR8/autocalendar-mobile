@@ -8,9 +8,8 @@ class DemoData {
   static const String userId = 'demo-user';
 
   static List<Bay> bays = [
-    Bay(id: 'bay-1', shopId: shopId, name: 'Слесарные работы', position: 1),
-    Bay(id: 'bay-2', shopId: shopId, name: 'Диагностика', position: 2),
-    Bay(id: 'bay-3', shopId: shopId, name: 'Шиномонтаж', position: 3),
+    Bay(id: 'bay-1', shopId: shopId, name: 'Подъёмник 1', position: 1),
+    Bay(id: 'bay-2', shopId: shopId, name: 'Подъёмник 2', position: 2),
   ];
 
   static List<Service> services = [

@@ -44,7 +44,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   static const int _currentWeekIndex = 52;
 
   static const List<IconData> _bayIcons = [
-    Icons.build, Icons.search, Icons.tire_repair, Icons.bolt, Icons.car_repair,
+    Icons.car_repair, Icons.car_repair,
   ];
 
   @override
@@ -97,6 +97,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
       }).toList();
 
   double _apptTop(models.Appointment a) {
+    // Для многосуточных аптов используется только _apptRenderForDay
     final mins = a.startAt.hour * 60 + a.startAt.minute - _startHour * 60;
     return (mins / 30) * _slotHeight;
   }
@@ -104,6 +105,33 @@ class _CalendarDayViewState extends State<CalendarDayView> {
   double _apptHeight(models.Appointment a) {
     final dur = a.endAt.difference(a.startAt);
     return (dur.inMinutes / 30) * _slotHeight - 2;
+  }
+
+  /// Рендер карточки многосуточного апта для ОДНОГО конкретного дня.
+  /// Возвращает (top, height, isFirst, isLast) или null если апт не пересекается с днём.
+  _ApptDayRender? _apptRenderForDay(models.Appointment a, DateTime day) {
+    final dayStart = DateTime(day.year, day.month, day.day, _startHour, 0);
+    final dayEnd = DateTime(day.year, day.month, day.day, _endHour, 0);
+
+    // Апт полностью до дня начался или уже закончился
+    if (!a.endAt.isAfter(dayStart) || !a.startAt.isBefore(dayEnd)) return null;
+
+    // Clamp в границы рабочего времени дня
+    final visibleStart = a.startAt.isBefore(dayStart) ? dayStart : a.startAt;
+    final visibleEnd = a.endAt.isAfter(dayEnd) ? dayEnd : a.endAt;
+
+    final topMins = visibleStart.hour * 60 + visibleStart.minute - _startHour * 60;
+    final durMins = visibleEnd.difference(visibleStart).inMinutes;
+
+    final firstDay = _dateOnly(a.startAt) == _dateOnly(day);
+    final lastDay = _dateOnly(a.endAt.add(const Duration(seconds: -1))) == _dateOnly(day);
+
+    return _ApptDayRender(
+      top: (topMins / 30) * _slotHeight,
+      height: (durMins / 30) * _slotHeight - 2,
+      isFirstDay: firstDay,
+      isLastDay: lastDay,
+    );
   }
 
   IconData _bayIcon(int index) => _bayIcons[index % _bayIcons.length];
@@ -390,23 +418,38 @@ class _CalendarDayViewState extends State<CalendarDayView> {
             );
           }),
         ),
-        ...appts.map((a) => _buildAppointmentCard(context, a)),
+        // Многосуточные апты: рендер карточки только для дней где они видимы
+        ...appts.expand((a) {
+          final render = _apptRenderForDay(a, widget.selectedDay);
+          if (render == null) return <Widget>[];
+          return <Widget>[_buildAppointmentCard(context, a, render)];
+        }),
         if (_isToday(widget.selectedDay)) _buildNowLine(context),
       ],
     );
   }
 
-  Widget _buildAppointmentCard(BuildContext context, models.Appointment a) {
-    final top = _apptTop(a);
-    final height = _apptHeight(a);
+  Widget _buildAppointmentCard(BuildContext context, models.Appointment a, _ApptDayRender render) {
     final color = AppTheme.statusColor(a.status);
     final label = widget.vehicleLabel(a.vehicleId);
 
+    // Закругления углов в зависимости от позиции дня в многосуточном апте:
+    // - Первый день: верхние закруглены, нижние плоские (апт "начинается")
+    // - Последний день: верхние плоские, нижние закруглены (апт "заканчивается")
+    // - Промежуточный день: все плоские (апт "идёт" через день)
+    // - Однодневный: все углы закруглены
+    final borderRadius = BorderRadius.only(
+      topLeft: Radius.circular(render.isFirstDay ? 3 : 0),
+      topRight: Radius.circular(render.isFirstDay ? 3 : 0),
+      bottomLeft: Radius.circular(render.isLastDay ? 3 : 0),
+      bottomRight: Radius.circular(render.isLastDay ? 3 : 0),
+    );
+
     return Positioned(
-      top: top,
+      top: render.top,
       left: 1,
       right: 1,
-      height: height,
+      height: render.height,
       child: GestureDetector(
         onTap: () => widget.onAppointmentTap(a),
         onLongPress: () => _showStatusMenu(context, a),
@@ -415,12 +458,12 @@ class _CalendarDayViewState extends State<CalendarDayView> {
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
             border: Border(left: BorderSide(color: color, width: 2.5)),
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: borderRadius,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (height > 24) ...[
+              if (render.height > 24) ...[
                 Expanded(
                   child: Text(
                     label,
@@ -433,7 +476,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (height > 44)
+                if (render.height > 44)
                   Text(
                     DateFormat.Hm().format(a.startAt),
                     style: TextStyle(fontSize: 8, color: AppTheme.textMuteOf(context)),
@@ -586,4 +629,22 @@ extension ColorDarken on Color {
     final hsl = HSLColor.fromColor(this);
     return hsl.withLightness((hsl.lightness - amount).clamp(0, 1)).toColor();
   }
+}
+
+/// Данные для рендеринга карточки апта в одном дне (для многосуточных).
+class _ApptDayRender {
+  final double top;
+  final double height;
+  final bool isFirstDay;
+  final bool isLastDay;
+
+  const _ApptDayRender({
+    required this.top,
+    required this.height,
+    required this.isFirstDay,
+    required this.isLastDay,
+  });
+
+  /// Является ли этот день "промежуточным" (не первый и не последний)
+  bool get isMiddleDay => !isFirstDay && !isLastDay;
 }
