@@ -36,6 +36,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   final DateTime _windowEnd = DateTime.now().add(const Duration(days: 30));
   DateTime _selectedDay = DateTime.now();
   bool _isMonthView = false;
+  String? _selectedBayId;
 
   List<models.Appointment> _appts = [];
   List<Bay> _bays = [];
@@ -288,7 +289,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     }
   }
 
-  void _showCreateDialog({DateTime? initialDate}) async {
+  void _showCreateDialog({DateTime? initialDate, String? bayId}) async {
+    _selectedBayId = bayId ?? (_bays.isNotEmpty ? _bays.first.id : null);
     final start = initialDate ?? DateTime(
       _selectedDay.year, _selectedDay.month, _selectedDay.day,
       DateTime.now().hour, 0,
@@ -331,6 +333,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   void _showEditDialog(models.Appointment a) async {
+    _selectedBayId = a.bayId;
     // Открываем отдельную страницу для редактирования (как при создании).
     final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
@@ -378,7 +381,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   void _handleDioError(DioException e) {
     if (e.response?.statusCode == 409) {
-      _snack('Конфликт: на этом посту уже есть запись в этом времени');
+      // Находим название подъёмника по _selectedBayId
+      final bayName = _selectedBayId != null
+          ? _bays.where((b) => b.id == _selectedBayId).map((b) => b.name).firstOrNull ?? 'подъёмнике'
+          : 'подъёмнике';
+      _snack('На "$bayName" уже есть запись в это время. Выберите другое время или другой подъёмник.');
     } else {
       _snack('Ошибка ${e.response?.statusCode}: ${e.message}');
     }

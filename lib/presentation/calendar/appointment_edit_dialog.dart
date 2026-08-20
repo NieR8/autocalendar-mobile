@@ -382,7 +382,8 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
           focusNode: focusNode,
           onSubmitted: (_) => onSubmitted(),
           decoration: InputDecoration(
-            labelText: 'Поиск авто (марка, модель, госномер, VIN)',
+            labelText: 'Выберите из списка или введите марку',
+            hintText: 'Поиск по марке, модели, госномеру, VIN',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: controller.text.isNotEmpty
                 ? IconButton(
@@ -405,7 +406,9 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
           child: Material(
             elevation: 4,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 180 : 240,
+              ),
               child: ListView.builder(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
@@ -414,12 +417,16 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
                   final vehicle = options.elementAt(index);
                   return ListTile(
                     leading: const Icon(Icons.directions_car),
-                    title: Text(vehicle.displayLabel),
+                    title: Text(
+                      vehicle.displayLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
                     subtitle: Text(
                       [
                         if (vehicle.customerName.isNotEmpty) vehicle.customerName,
                         if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
                       ].join(' • '),
+                      style: const TextStyle(fontSize: 12),
                     ),
                     onTap: () => onSelected(vehicle),
                   );
