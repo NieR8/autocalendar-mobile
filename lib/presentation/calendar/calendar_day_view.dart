@@ -181,7 +181,7 @@ class _CalendarDayViewState extends State<CalendarDayView> {
                 border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
               ),
               child: InkWell(
-                onTap: onDateHeaderTap,
+                onTap: widget.onDateHeaderTap,
                 child: _buildDateHeader(context),
               ),
             ),
