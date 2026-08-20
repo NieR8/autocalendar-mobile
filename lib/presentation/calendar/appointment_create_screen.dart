@@ -1,5 +1,4 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,7 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../data/api/catalog_api.dart';
 import '../../data/models/appointment_models.dart' as models;
 import '../../data/models/catalog_models.dart';
-import 'radial_time_picker.dart';
+import 'hybrid_time_picker.dart';
+import 'vehicle_search_screen.dart';
 
 /// Страница создания/редактирования записи.
 class AppointmentCreateScreen extends ConsumerStatefulWidget {
@@ -361,144 +361,89 @@ class _AppointmentCreateScreenState
   }
 
   Widget _vehicleAutocomplete() {
-    return Autocomplete<Vehicle>(
-      initialValue: _selectedVehicle != null
-          ? TextEditingValue(text: _selectedVehicle!.displayLabel)
-          : const TextEditingValue(),
-      displayStringForOption: (v) => v.displayLabel,
-      optionsBuilder: (textEditingValue) {
-        final query = textEditingValue.text.toLowerCase().trim();
-        if (query.isEmpty) {
-          return widget.vehicles.where((v) => v.id.isNotEmpty);
-        }
-        return widget.vehicles.where((v) {
-          return v.make.toLowerCase().contains(query) ||
-              v.model.toLowerCase().contains(query) ||
-              v.plate.toLowerCase().contains(query) ||
-              v.vin.toLowerCase().contains(query);
-        });
-      },
-      onSelected: (vehicle) {
-        setState(() {
-          _selectedVehicle = vehicle;
-          _vehicleId = vehicle.id;
-          // Очищаем поля "нового авто" — выбран существующий
-          _makeCtrl.clear();
-          _modelCtrl.clear();
-          _plateCtrl.clear();
-          _vinCtrl.clear();
-          _clientNameCtrl.clear();
-          _clientPhoneCtrl.clear();
-        });
-      },
-      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onSubmitted: (_) => onSubmitted(),
-          decoration: InputDecoration(
-            labelText: 'Выберите из списка или введите марку',
-            hintText: 'Поиск по марке, модели, госномеру, VIN',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      controller.clear();
-                      setState(() {
-                        _selectedVehicle = null;
-                        _vehicleId = '';
-                      });
-                    },
-                  )
-                : null,
-          ),
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-            color: isDark ? AppTheme.darkSurface : Colors.white,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 200 : 260,
-              ),
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final vehicle = options.elementAt(index);
-                  return InkWell(
-                    onTap: () => onSelected(vehicle),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : AppTheme.border,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                            ),
-                            child: const Icon(
-                              Icons.directions_car,
-                              color: AppTheme.primary,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  vehicle.displayLabel,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? AppTheme.darkText : AppTheme.text,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  [
-                                    if (vehicle.plate.isNotEmpty) vehicle.plate,
-                                    if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
-                                  ].join(' • '),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.of(context).push<Vehicle>(
+          MaterialPageRoute(
+            builder: (_) => VehicleSearchScreen(
+              vehicles: widget.vehicles,
+              selectedVehicle: _selectedVehicle,
             ),
           ),
         );
+        if (result != null) {
+          setState(() {
+            _selectedVehicle = result;
+            _vehicleId = result.id;
+            // Очищаем поля "нового авто"
+            _makeCtrl.clear();
+            _modelCtrl.clear();
+            _plateCtrl.clear();
+            _vinCtrl.clear();
+            _clientNameCtrl.clear();
+            _clientPhoneCtrl.clear();
+          });
+        }
       },
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface2 : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          border: Border.all(color: AppTheme.borderOf(context)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.directions_car,
+              color: AppTheme.primary,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _selectedVehicle != null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedVehicle!.displayLabel,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textOf(context),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (_selectedVehicle!.plate.isNotEmpty) _selectedVehicle!.plate,
+                            if (_selectedVehicle!.vin.isNotEmpty) 'VIN: ${_selectedVehicle!.vin}',
+                          ].join(' • '),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textMuteOf(context),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      'Выберите авто',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textMuteOf(context),
+                      ),
+                    ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: AppTheme.textMuteOf(context),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -511,9 +456,14 @@ class _AppointmentCreateScreenState
       lastDate: DateTime.now().add(const Duration(days: 90)),
       locale: const Locale('ru', 'RU'),
       builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
           data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              surface: isDark ? AppTheme.darkSurface2 : Colors.white,
+            ),
             datePickerTheme: DatePickerThemeData(
+              backgroundColor: isDark ? AppTheme.darkSurface2 : Colors.white,
               surfaceTintColor: Colors.transparent,
               dayStyle: const TextStyle(fontSize: 14),
               headerBackgroundColor: Theme.of(context).colorScheme.primary,
@@ -531,14 +481,14 @@ class _AppointmentCreateScreenState
                 Theme.of(context).colorScheme.primary,
               ),
               cancelButtonStyle: TextButton.styleFrom(
-                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+                padding: const EdgeInsets.only(top: 10, bottom: 6, left: 16, right: 16),
               ),
               confirmButtonStyle: FilledButton.styleFrom(
-                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+                padding: const EdgeInsets.only(top: 10, bottom: 6, left: 16, right: 16),
               ),
             ),
             dialogTheme: DialogThemeData(
-              actionsPadding: const EdgeInsets.only(bottom: 8),
+              actionsPadding: const EdgeInsets.only(bottom: 6),
             ),
           ),
           child: child!,
@@ -567,10 +517,12 @@ class _AppointmentCreateScreenState
 
   Future<void> _pickTime({required bool isStart}) async {
     final initial = isStart ? _startAt : _endAt;
+    final startTime = isStart ? null : TimeOfDay.fromDateTime(_startAt);
     final result = await showDialog<TimeOfDay>(
       context: context,
-      builder: (context) => RadialTimePicker(
+      builder: (context) => HybridTimePicker(
         initialTime: TimeOfDay.fromDateTime(initial),
+        startTime: startTime,
       ),
     );
     if (result == null) return;
