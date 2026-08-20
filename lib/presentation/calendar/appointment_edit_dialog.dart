@@ -8,7 +8,7 @@ import '../../data/api/catalog_api.dart';
 import '../../data/models/appointment_models.dart' as models;
 import '../../data/models/catalog_models.dart';
 import '../work_order/work_order_screen.dart';
-import 'appointment_create_screen.dart' show TimeInputDialog;
+import 'radial_time_picker.dart';
 
 /// Диалог создания/редактирования записи.
 /// Отступы между всеми полями — 12px. 24-часовой формат времени.
@@ -552,9 +552,8 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     final initial = isStart ? _start : _end;
     final result = await showDialog<TimeOfDay>(
       context: context,
-      builder: (context) => TimeInputDialog(
+      builder: (context) => RadialTimePicker(
         initialTime: TimeOfDay.fromDateTime(initial),
-        label: isStart ? 'Время начала' : 'Время окончания',
       ),
     );
     if (result == null) return;

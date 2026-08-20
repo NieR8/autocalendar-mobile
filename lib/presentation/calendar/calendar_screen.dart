@@ -57,7 +57,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.dispose();
   }
 
-  /// Переключение на месячный вид через свайп сверху вниз
+  /// Переключение на месячный вид (шторка опускается сверху вниз)
   void _switchToMonthView() {
     if (_isMonthView) return;
     setState(() => _isMonthView = true);
@@ -152,13 +152,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onVerticalDragEnd: (details) {
-            // Свайп вниз (velocityY > 0) → переключаем на месячный вид
-            if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-              _switchToMonthView();
-            }
-          },
+        title: InkWell(
+          onTap: _switchToMonthView,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -208,17 +203,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               : AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   transitionBuilder: (child, animation) {
-                    final isEntering = child.key == const ValueKey('month');
-                    final offset = isEntering
-                        ? const Offset(0, -1)
-                        : const Offset(0, 1);
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: offset,
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    );
+                    final isMonthView = child.key == const ValueKey('month');
+                    if (isMonthView) {
+                      // При переходе на месяц: шторка опускается сверху вниз
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, -1),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      );
+                    } else {
+                      // При возврате на день: без анимации (мгновенно)
+                      return child;
+                    }
                   },
                   child: _isMonthView
                       ? CalendarMonthView(
