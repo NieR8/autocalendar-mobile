@@ -60,7 +60,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.dispose();
   }
 
-  /// Переключение дневной ↔ месячный через PageView slide-анимацию (300ms).
+  /// Переключение на месячный вид через свайп сверху вниз
   void _switchToMonthView() {
     if (_isMonthView) return;
     setState(() => _isMonthView = true);
@@ -79,14 +79,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-  }
-
-  void _toggleView() {
-    if (_isMonthView) {
-      _switchToDayView();
-    } else {
-      _switchToMonthView();
-    }
   }
 
   void _connectWs() {
@@ -170,11 +162,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: InkWell(
-          onTap: _toggleView,
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        title: GestureDetector(
+          onVerticalDragEnd: (details) {
+            // Свайп вниз (velocityY > 0) → переключаем на месячный вид
+            if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+              _switchToMonthView();
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -183,20 +180,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 Text(DateFormat('d MMMM, E', 'ru_RU').format(_selectedDay)),
                 const SizedBox(width: 4),
                 Icon(
-                  _isMonthView ? Icons.calendar_month : Icons.view_day,
-                  size: 18,
-                  color: AppTheme.primary,
+                  Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(_isMonthView ? Icons.view_day : Icons.calendar_month),
-            onPressed: _toggleView,
-            tooltip: _isMonthView ? 'Вид: день' : 'Вид: месяц',
-          ),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {
@@ -239,7 +231,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       onSlotTap: (time) => _showCreateDialog(initialDate: time),
                       onAppointmentTap: (a) => _showEditDialog(a),
                       onStatusChanged: _changeStatus,
-                      onDateHeaderTap: _switchToMonthView,
                     ),
                     CalendarMonthView(
                       appointments: _appts,

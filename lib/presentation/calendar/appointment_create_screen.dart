@@ -374,9 +374,7 @@ class _AppointmentCreateScreenState
           return v.make.toLowerCase().contains(query) ||
               v.model.toLowerCase().contains(query) ||
               v.plate.toLowerCase().contains(query) ||
-              v.vin.toLowerCase().contains(query) ||
-              v.customerName.toLowerCase().contains(query) ||
-              v.customerPhone.toLowerCase().contains(query);
+              v.vin.toLowerCase().contains(query);
         });
       },
       onSelected: (vehicle) {
@@ -417,34 +415,82 @@ class _AppointmentCreateScreenState
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Align(
           alignment: Alignment.topLeft,
           child: Material(
-            elevation: 4,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            color: isDark ? AppTheme.darkSurface : Colors.white,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 180 : 240,
+                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 200 : 260,
               ),
               child: ListView.builder(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 shrinkWrap: true,
                 itemCount: options.length,
                 itemBuilder: (context, index) {
                   final vehicle = options.elementAt(index);
-                  return ListTile(
-                    leading: const Icon(Icons.directions_car),
-                    title: Text(
-                      vehicle.displayLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      [
-                        if (vehicle.customerName.isNotEmpty) vehicle.customerName,
-                        if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
-                      ].join(' • '),
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  return InkWell(
                     onTap: () => onSelected(vehicle),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            ),
+                            child: const Icon(
+                              Icons.directions_car,
+                              color: AppTheme.primary,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vehicle.displayLabel,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.darkText : AppTheme.text,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  [
+                                    if (vehicle.plate.isNotEmpty) vehicle.plate,
+                                    if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
+                                  ].join(' • '),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -704,8 +750,20 @@ class TimeInputDialogState extends State<TimeInputDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
-      title: Text(widget.label),
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+      ),
+      title: Text(
+        widget.label,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: isDark ? AppTheme.darkText : AppTheme.text,
+        ),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -715,11 +773,46 @@ class TimeInputDialogState extends State<TimeInputDialog> {
             focusNode: _focusNode,
             keyboardType: TextInputType.datetime,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: isDark ? AppTheme.darkText : AppTheme.text,
+              letterSpacing: 2,
+            ),
             decoration: InputDecoration(
               hintText: 'ЧЧ:ММ',
+              hintStyle: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+                letterSpacing: 2,
+              ),
               errorText: _error,
               counterText: '',
+              filled: true,
+              fillColor: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                borderSide: BorderSide(
+                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                  width: 2,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                borderSide: BorderSide(
+                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                  width: 2,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                borderSide: const BorderSide(
+                  color: AppTheme.primary,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             ),
             maxLength: 5,
             inputFormatters: [
@@ -728,12 +821,12 @@ class TimeInputDialogState extends State<TimeInputDialog> {
             onSubmitted: (_) => _submit(),
             onChanged: (_) => setState(() => _error = null),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             '24-часовой формат (00:00 – 23:59)',
             style: TextStyle(
               fontSize: 12,
-              color: AppTheme.textMuteOf(context),
+              color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
             ),
             textAlign: TextAlign.center,
           ),
@@ -742,11 +835,29 @@ class TimeInputDialogState extends State<TimeInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Отмена'),
+          style: TextButton.styleFrom(
+            foregroundColor: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: const Text(
+            'Отмена',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Готово'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+          ),
+          child: const Text(
+            'Готово',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

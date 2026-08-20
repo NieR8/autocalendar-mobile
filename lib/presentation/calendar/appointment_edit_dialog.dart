@@ -360,9 +360,7 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
           return v.make.toLowerCase().contains(query) ||
               v.model.toLowerCase().contains(query) ||
               v.plate.toLowerCase().contains(query) ||
-              v.vin.toLowerCase().contains(query) ||
-              v.customerName.toLowerCase().contains(query) ||
-              v.customerPhone.toLowerCase().contains(query);
+              v.vin.toLowerCase().contains(query);
         });
       },
       onSelected: (vehicle) {
@@ -401,34 +399,82 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Align(
           alignment: Alignment.topLeft,
           child: Material(
-            elevation: 4,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            color: isDark ? AppTheme.darkSurface : Colors.white,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 180 : 240,
+                maxHeight: MediaQuery.of(context).viewInsets.bottom > 0 ? 200 : 260,
               ),
               child: ListView.builder(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 shrinkWrap: true,
                 itemCount: options.length,
                 itemBuilder: (context, index) {
                   final vehicle = options.elementAt(index);
-                  return ListTile(
-                    leading: const Icon(Icons.directions_car),
-                    title: Text(
-                      vehicle.displayLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      [
-                        if (vehicle.customerName.isNotEmpty) vehicle.customerName,
-                        if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
-                      ].join(' • '),
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  return InkWell(
                     onTap: () => onSelected(vehicle),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            ),
+                            child: const Icon(
+                              Icons.directions_car,
+                              color: AppTheme.primary,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vehicle.displayLabel,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.darkText : AppTheme.text,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  [
+                                    if (vehicle.plate.isNotEmpty) vehicle.plate,
+                                    if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
+                                  ].join(' • '),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),

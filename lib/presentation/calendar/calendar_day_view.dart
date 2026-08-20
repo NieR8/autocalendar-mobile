@@ -15,8 +15,6 @@ class CalendarDayView extends StatefulWidget {
   final Function(DateTime) onSlotTap;
   final Function(models.Appointment) onAppointmentTap;
   final Function(models.Appointment, String)? onStatusChanged;
-  /// Callback: тап на заголовок даты → обычно переключает в месячный вид.
-  final VoidCallback? onDateHeaderTap;
 
   const CalendarDayView({
     super.key,
@@ -28,7 +26,6 @@ class CalendarDayView extends StatefulWidget {
     required this.onSlotTap,
     required this.onAppointmentTap,
     this.onStatusChanged,
-    this.onDateHeaderTap,
   });
 
   @override
@@ -173,17 +170,14 @@ class _CalendarDayViewState extends State<CalendarDayView> {
       color: bgColor,
       child: Column(
         children: [
-          // Блок 1: дата — с нижней границей + тап переключает в месячный
+          // Блок 1: дата — с нижней границей
           Container(
             color: bgColor,
             child: Container(
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: AppTheme.borderOf(context).withOpacity(0.3), width: 0.5)),
               ),
-              child: InkWell(
-                onTap: widget.onDateHeaderTap,
-                child: _buildDateHeader(context),
-              ),
+              child: _buildDateHeader(context),
             ),
           ),
           // Блок 2: скроллер дней — с отступами сверху/снизу + нижняя граница
@@ -233,11 +227,6 @@ class _CalendarDayViewState extends State<CalendarDayView> {
           const SizedBox(width: 8),
           Text(weekdayStr,
               style: TextStyle(fontSize: 13, color: AppTheme.textDimOf(context))),
-          const Spacer(),
-          // Подсказка: тап → месячный вид
-          if (widget.onDateHeaderTap != null)
-            Icon(Icons.calendar_month, size: 18,
-                color: AppTheme.primary.withOpacity(0.7)),
         ],
       ),
     );
