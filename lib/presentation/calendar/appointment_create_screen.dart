@@ -512,9 +512,32 @@ class _AppointmentCreateScreenState
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            datePickerTheme: const DatePickerThemeData(
+            datePickerTheme: DatePickerThemeData(
               surfaceTintColor: Colors.transparent,
-              dayStyle: TextStyle(fontSize: 14),
+              dayStyle: const TextStyle(fontSize: 14),
+              headerBackgroundColor: Theme.of(context).colorScheme.primary,
+              headerForegroundColor: Colors.white,
+              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.primary;
+                }
+                return null;
+              }),
+              todayBackgroundColor: WidgetStateProperty.all(
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              ),
+              todayForegroundColor: WidgetStateProperty.all(
+                Theme.of(context).colorScheme.primary,
+              ),
+              cancelButtonStyle: TextButton.styleFrom(
+                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+              ),
+              confirmButtonStyle: FilledButton.styleFrom(
+                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+              ),
+            ),
+            dialogTheme: DialogThemeData(
+              actionsPadding: const EdgeInsets.only(bottom: 8),
             ),
           ),
           child: child!,
@@ -687,43 +710,43 @@ class TimeInputDialog extends StatefulWidget {
 }
 
 class TimeInputDialogState extends State<TimeInputDialog> {
-  late final TextEditingController _ctrl;
+  late final TextEditingController _hourCtrl;
+  late final TextEditingController _minuteCtrl;
   String? _error;
-  final _focusNode = FocusNode();
+  final _hourFocusNode = FocusNode();
+  final _minuteFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    final h = widget.initialTime.hour.toString().padLeft(2, '0');
-    final m = widget.initialTime.minute.toString().padLeft(2, '0');
-    _ctrl = TextEditingController(text: '$h:$m');
-    // Авто-фокус + выделение текста
+    _hourCtrl = TextEditingController(
+      text: widget.initialTime.hour.toString().padLeft(2, '0'),
+    );
+    _minuteCtrl = TextEditingController(
+      text: widget.initialTime.minute.toString().padLeft(2, '0'),
+    );
+    // Авто-фокус на часы
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-      _ctrl.selection = TextSelection(
+      _hourFocusNode.requestFocus();
+      _hourCtrl.selection = TextSelection(
         baseOffset: 0,
-        extentOffset: _ctrl.text.length,
+        extentOffset: _hourCtrl.text.length,
       );
     });
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
-    _focusNode.dispose();
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    _hourFocusNode.dispose();
+    _minuteFocusNode.dispose();
     super.dispose();
   }
 
-  TimeOfDay? _validate(String value) {
-    final trimmed = value.trim();
-    // Разрешаем "9:30" → дополняем до "09:30"
-    final parts = trimmed.split(':');
-    if (parts.length != 2) {
-      setState(() => _error = 'Формат: ЧЧ:ММ (например 14:30)');
-      return null;
-    }
-    final hStr = parts[0].padLeft(2, '0');
-    final mStr = parts[1].padLeft(2, '0');
+  TimeOfDay? _validate() {
+    final hStr = _hourCtrl.text.trim().padLeft(2, '0');
+    final mStr = _minuteCtrl.text.trim().padLeft(2, '0');
     final h = int.tryParse(hStr);
     final m = int.tryParse(mStr);
     if (h == null || m == null) {
@@ -742,7 +765,7 @@ class TimeInputDialogState extends State<TimeInputDialog> {
   }
 
   void _submit() {
-    final result = _validate(_ctrl.text);
+    final result = _validate();
     if (result != null) {
       Navigator.of(context).pop(result);
     }
@@ -768,62 +791,163 @@ class TimeInputDialogState extends State<TimeInputDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _ctrl,
-            focusNode: _focusNode,
-            keyboardType: TextInputType.datetime,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: isDark ? AppTheme.darkText : AppTheme.text,
-              letterSpacing: 2,
-            ),
-            decoration: InputDecoration(
-              hintText: 'ЧЧ:ММ',
-              hintStyle: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
-                letterSpacing: 2,
-              ),
-              errorText: _error,
-              counterText: '',
-              filled: true,
-              fillColor: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                borderSide: BorderSide(
-                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
-                  width: 2,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Поле для часов
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: _hourCtrl,
+                  focusNode: _hourFocusNode,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkText : AppTheme.text,
+                    letterSpacing: 2,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'ЧЧ',
+                    hintStyle: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+                      letterSpacing: 2,
+                    ),
+                    counterText: '',
+                    filled: true,
+                    fillColor: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                        width: 2,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                        width: 2,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: const BorderSide(
+                        color: AppTheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  ),
+                  maxLength: 2,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  onSubmitted: (_) {
+                    _minuteFocusNode.requestFocus();
+                    _minuteCtrl.selection = TextSelection(
+                      baseOffset: 0,
+                      extentOffset: _minuteCtrl.text.length,
+                    );
+                  },
+                  onChanged: (value) {
+                    setState(() => _error = null);
+                    if (value.length == 2) {
+                      _minuteFocusNode.requestFocus();
+                      _minuteCtrl.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: _minuteCtrl.text.length,
+                      );
+                    }
+                  },
                 ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                borderSide: BorderSide(
-                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
-                  width: 2,
+              // Разделитель ":"
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  ':',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkText : AppTheme.text,
+                  ),
                 ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                borderSide: const BorderSide(
-                  color: AppTheme.primary,
-                  width: 2,
+              // Поле для минут
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: _minuteCtrl,
+                  focusNode: _minuteFocusNode,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkText : AppTheme.text,
+                    letterSpacing: 2,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'ММ',
+                    hintStyle: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
+                      letterSpacing: 2,
+                    ),
+                    counterText: '',
+                    filled: true,
+                    fillColor: isDark ? AppTheme.darkSurface2 : AppTheme.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                        width: 2,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                        width: 2,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      borderSide: const BorderSide(
+                        color: AppTheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  ),
+                  maxLength: 2,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  onSubmitted: (_) => _submit(),
+                  onChanged: (_) => setState(() => _error = null),
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            ),
-            maxLength: 5,
-            inputFormatters: [
-              TimeInputFormatter(),
             ],
-            onSubmitted: (_) => _submit(),
-            onChanged: (_) => setState(() => _error = null),
           ),
           const SizedBox(height: 12),
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.danger,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          const SizedBox(height: 8),
           Text(
-            '24-часовой формат (00:00 – 23:59)',
+            '24-часовой формат',
             style: TextStyle(
               fontSize: 12,
               color: isDark ? AppTheme.darkTextMute : AppTheme.textMute,
@@ -832,6 +956,7 @@ class TimeInputDialogState extends State<TimeInputDialog> {
           ),
         ],
       ),
+      actionsPadding: const EdgeInsets.only(top: 16),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

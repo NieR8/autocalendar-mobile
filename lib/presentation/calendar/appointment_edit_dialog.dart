@@ -493,6 +493,40 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 90)),
       locale: const Locale('ru', 'RU'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            datePickerTheme: DatePickerThemeData(
+              surfaceTintColor: Colors.transparent,
+              dayStyle: const TextStyle(fontSize: 14),
+              headerBackgroundColor: Theme.of(context).colorScheme.primary,
+              headerForegroundColor: Colors.white,
+              dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Theme.of(context).colorScheme.primary;
+                }
+                return null;
+              }),
+              todayBackgroundColor: WidgetStateProperty.all(
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              ),
+              todayForegroundColor: WidgetStateProperty.all(
+                Theme.of(context).colorScheme.primary,
+              ),
+              cancelButtonStyle: TextButton.styleFrom(
+                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+              ),
+              confirmButtonStyle: FilledButton.styleFrom(
+                padding: const EdgeInsets.only(top: 12, bottom: 8, left: 16, right: 16),
+              ),
+            ),
+            dialogTheme: DialogThemeData(
+              actionsPadding: const EdgeInsets.only(bottom: 8),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (date == null) return;
     if (!mounted) return;

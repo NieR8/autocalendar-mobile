@@ -31,7 +31,6 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  late final PageController _pageController;
   final DateTime _windowStart = DateTime.now().subtract(const Duration(days: 7));
   final DateTime _windowEnd = DateTime.now().add(const Duration(days: 30));
   DateTime _selectedDay = DateTime.now();
@@ -48,14 +47,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
     _reloadAll();
     _connectWs();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
     _wsSub?.cancel();
     super.dispose();
   }
@@ -64,21 +61,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   void _switchToMonthView() {
     if (_isMonthView) return;
     setState(() => _isMonthView = true);
-    _pageController.animateToPage(
-      1,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
   }
 
   void _switchToDayView() {
     if (!_isMonthView) return;
     setState(() => _isMonthView = false);
-    _pageController.animateToPage(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
   }
 
   void _connectWs() {
@@ -218,30 +205,43 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     ],
                   ),
                 )
-              : PageView(
-                  controller: _pageController,
-                  onPageChanged: (page) => setState(() => _isMonthView = page == 1),
-                  children: [
-                    CalendarDayView(
-                      bays: _bays,
-                      appointments: _appts,
-                      selectedDay: _selectedDay,
-                      vehicleLabel: _vehicleLabel,
-                      onDayChanged: (day) => setState(() => _selectedDay = day),
-                      onSlotTap: (time) => _showCreateDialog(initialDate: time),
-                      onAppointmentTap: (a) => _showEditDialog(a),
-                      onStatusChanged: _changeStatus,
-                    ),
-                    CalendarMonthView(
-                      appointments: _appts,
-                      selectedDay: _selectedDay,
-                      onDayChanged: (day) {
-                        setState(() => _selectedDay = day);
-                        // Тап на день в месячном — возвращаемся в дневной
-                        _switchToDayView();
-                      },
-                    ),
-                  ],
+              : AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    final isEntering = child.key == const ValueKey('month');
+                    final offset = isEntering
+                        ? const Offset(0, -1)
+                        : const Offset(0, 1);
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: offset,
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    );
+                  },
+                  child: _isMonthView
+                      ? CalendarMonthView(
+                          key: const ValueKey('month'),
+                          appointments: _appts,
+                          selectedDay: _selectedDay,
+                          onDayChanged: (day) {
+                            setState(() => _selectedDay = day);
+                            // Тап на день в месячном — возвращаемся в дневной
+                            _switchToDayView();
+                          },
+                        )
+                      : CalendarDayView(
+                          key: const ValueKey('day'),
+                          bays: _bays,
+                          appointments: _appts,
+                          selectedDay: _selectedDay,
+                          vehicleLabel: _vehicleLabel,
+                          onDayChanged: (day) => setState(() => _selectedDay = day),
+                          onSlotTap: (time) => _showCreateDialog(initialDate: time),
+                          onAppointmentTap: (a) => _showEditDialog(a),
+                          onStatusChanged: _changeStatus,
+                        ),
                 ),
       floatingActionButton: _isMonthView
           ? null
