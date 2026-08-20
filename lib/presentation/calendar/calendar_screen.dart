@@ -31,6 +31,7 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
+  late final PageController _pageController;
   final DateTime _windowStart = DateTime.now().subtract(const Duration(days: 7));
   final DateTime _windowEnd = DateTime.now().add(const Duration(days: 30));
   DateTime _selectedDay = DateTime.now();
@@ -46,14 +47,45 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: 0);
     _reloadAll();
     _connectWs();
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _wsSub?.cancel();
     super.dispose();
+  }
+
+  /// Переключение дневной ↔ месячный через PageView slide-анимацию (300ms).
+  void _switchToMonthView() {
+    if (_isMonthView) return;
+    setState(() => _isMonthView = true);
+    _pageController.animateToPage(
+      1,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _switchToDayView() {
+    if (!_isMonthView) return;
+    setState(() => _isMonthView = false);
+    _pageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _toggleView() {
+    if (_isMonthView) {
+      _switchToDayView();
+    } else {
+      _switchToMonthView();
+    }
   }
 
   void _connectWs() {
@@ -139,11 +171,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(DateFormat('d MMMM, E', 'ru_RU').format(_selectedDay)),
+        title: InkWell(
+          onTap: _toggleView,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(DateFormat('d MMMM, E', 'ru_RU').format(_selectedDay)),
+                const SizedBox(width: 4),
+                Icon(
+                  _isMonthView ? Icons.calendar_month : Icons.view_day,
+                  size: 18,
+                  color: AppTheme.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: Icon(_isMonthView ? Icons.view_day : Icons.calendar_month),
-            onPressed: () => setState(() => _isMonthView = !_isMonthView),
+            onPressed: _toggleView,
             tooltip: _isMonthView ? 'Вид: день' : 'Вид: месяц',
           ),
           IconButton(
@@ -175,13 +225,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     ],
                   ),
                 )
-              : _isMonthView
-                  ? CalendarMonthView(
-                      appointments: _appts,
-                      selectedDay: _selectedDay,
-                      onDayChanged: (day) => setState(() => _selectedDay = day),
-                    )
-                  : CalendarDayView(
+              : PageView(
+                  controller: _pageController,
+                  onPageChanged: (page) => setState(() => _isMonthView = page == 1),
+                  children: [
+                    CalendarDayView(
                       bays: _bays,
                       appointments: _appts,
                       selectedDay: _selectedDay,
@@ -190,7 +238,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       onSlotTap: (time) => _showCreateDialog(initialDate: time),
                       onAppointmentTap: (a) => _showEditDialog(a),
                       onStatusChanged: _changeStatus,
+                      onDateHeaderTap: _switchToMonthView,
                     ),
+                    CalendarMonthView(
+                      appointments: _appts,
+                      selectedDay: _selectedDay,
+                      onDayChanged: (day) {
+                        setState(() => _selectedDay = day);
+                        // Тап на день в месячном — возвращаемся в дневной
+                        _switchToDayView();
+                      },
+                    ),
+                  ],
+                ),
       floatingActionButton: _isMonthView
           ? null
           : FloatingActionButton(

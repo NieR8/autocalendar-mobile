@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +8,7 @@ import '../../data/api/catalog_api.dart';
 import '../../data/models/appointment_models.dart' as models;
 import '../../data/models/catalog_models.dart';
 import '../work_order/work_order_screen.dart';
+import 'appointment_create_screen.dart' show TimeInputDialog;
 
 /// Диалог создания/редактирования записи.
 /// Отступы между всеми полями — 12px. 24-часовой формат времени.
@@ -133,12 +135,26 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
             ],
             const SizedBox(height: _fieldSpacing),
 
-            // Время старта
-            _timeTile('Старт', _start, true),
+            // Дата и время старта
+            _sectionLabel('Начало'),
+            Row(
+              children: [
+                Expanded(child: _dateTile(_start, 'Дата', true)),
+                const SizedBox(width: 8),
+                Expanded(child: _timeTile(_start, 'Время', true)),
+              ],
+            ),
             const SizedBox(height: _fieldSpacing),
 
-            // Время конца
-            _timeTile('Конец', _end, false),
+            // Дата и время конца
+            _sectionLabel('Конец'),
+            Row(
+              children: [
+                Expanded(child: _dateTile(_end, 'Дата', false)),
+                const SizedBox(width: 8),
+                Expanded(child: _timeTile(_end, 'Время', false)),
+              ],
+            ),
             const SizedBox(height: _fieldSpacing),
 
             // Статус
@@ -222,33 +238,82 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     );
   }
 
-  /// Плитка выбора времени с 24-часовым форматом.
-  Widget _timeTile(String label, DateTime dt, bool isStart) {
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textDimOf(context),
+        ),
+      ),
+    );
+  }
+
+  /// Плитка выбора даты.
+  Widget _dateTile(DateTime dt, String label, bool isStart) {
     return InkWell(
-      onTap: () => _pickDateTime(isStart: isStart),
+      onTap: () => _pickDate(isStart: isStart),
       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.border),
+          border: Border.all(color: AppTheme.borderOf(context)),
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppTheme.textDim, fontSize: 14)),
-            Text(
-              DateFormat('dd.MM.yyyy, H:mm').format(dt),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            Flexible(
+              child: Text(
+                DateFormat('d MMM yyyy', 'ru_RU').format(dt),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textOf(context),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.textMute, size: 20),
+            Icon(Icons.calendar_today, size: 16, color: AppTheme.primary),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _pickDateTime({required bool isStart}) async {
+  /// Плитка выбора времени (ручной ввод через TextField).
+  Widget _timeTile(DateTime dt, String label, bool isStart) {
+    return InkWell(
+      onTap: () => _pickTime(isStart: isStart),
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.borderOf(context)),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              DateFormat('HH:mm').format(dt),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textOf(context),
+              ),
+            ),
+            Icon(Icons.schedule, size: 16, color: AppTheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart ? _start : _end;
     final date = await showDatePicker(
       context: context,
@@ -259,25 +324,58 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     );
     if (date == null) return;
     if (!mounted) return;
-    // 24-часовой формат — TimePicker с builder для русского.
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (time == null) return;
-    final newDt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+
     setState(() {
       if (isStart) {
-        _start = newDt;
+        _start = DateTime(date.year, date.month, date.day, _start.hour, _start.minute);
+        // Если end <= start — авто-сдвигаем
         if (!_end.isAfter(_start)) {
           _end = _start.add(const Duration(hours: 1));
         }
       } else {
-        _end = newDt;
+        _end = DateTime(date.year, date.month, date.day, _end.hour, _end.minute);
+        // Если end стал <= start — авто-сдвигаем end на +1 день
+        if (!_end.isAfter(_start)) {
+          _end = _end.add(const Duration(days: 1));
+        }
+      }
+    });
+  }
+
+  Future<void> _pickTime({required bool isStart}) async {
+    final initial = isStart ? _start : _end;
+    final result = await showDialog<TimeOfDay>(
+      context: context,
+      builder: (context) => TimeInputDialog(
+        initialTime: TimeOfDay.fromDateTime(initial),
+        label: isStart ? 'Время начала' : 'Время окончания',
+      ),
+    );
+    if (result == null) return;
+    if (!mounted) return;
+
+    final newDt = DateTime(
+      initial.year, initial.month, initial.day,
+      result.hour, result.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _start = newDt;
+        // Если end <= start — авто-сдвигаем
+        if (!_end.isAfter(_start)) {
+          _end = _start.add(const Duration(hours: 1));
+        }
+      } else {
+        // Авто-сдвиг: если время раньше начала на той же дате — +1 день
+        if (initial.year == _start.year &&
+            initial.month == _start.month &&
+            initial.day == _start.day &&
+            newDt.isBefore(_start)) {
+          _end = newDt.add(const Duration(days: 1));
+        } else {
+          _end = newDt;
+        }
       }
     });
   }
