@@ -36,6 +36,7 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
   late DateTime _end;
   String _bayId = '';
   String _vehicleId = '';
+  Vehicle? _selectedVehicle;
   String _status = 'planned';
   late final TextEditingController _noteCtrl;
 
@@ -43,6 +44,7 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
   late final TextEditingController _makeCtrl;
   late final TextEditingController _modelCtrl;
   late final TextEditingController _plateCtrl;
+  late final TextEditingController _vinCtrl;
 
   static const _fieldSpacing = 12.0;
 
@@ -53,13 +55,24 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     _start = a?.startAt ?? widget.initialStart;
     _end = a?.endAt ?? _start.add(const Duration(hours: 1));
     _bayId = a?.bayId ?? (widget.bays.isNotEmpty ? widget.bays.first.id : '');
-    _vehicleId = a?.vehicleId ?? (widget.vehicles.isNotEmpty ? widget.vehicles.first.id : '');
+    _vehicleId = a?.vehicleId ?? '';
     _status = a?.status ?? 'planned';
     _noteCtrl = TextEditingController(text: a?.note ?? '');
     _isInlineVehicle = widget.vehicles.isEmpty;
     _makeCtrl = TextEditingController();
     _modelCtrl = TextEditingController();
     _plateCtrl = TextEditingController();
+    _vinCtrl = TextEditingController();
+
+    // Если авто найдено в каталоге — выбираем его
+    if (a != null && a.vehicleId.isNotEmpty) {
+      final vIdx = widget.vehicles.indexWhere((v) => v.id == a.vehicleId);
+      if (vIdx >= 0) {
+        _selectedVehicle = widget.vehicles[vIdx];
+        _vehicleId = _selectedVehicle!.id;
+        _isInlineVehicle = false;
+      }
+    }
   }
 
   @override
@@ -68,6 +81,7 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     _makeCtrl.dispose();
     _modelCtrl.dispose();
     _plateCtrl.dispose();
+    _vinCtrl.dispose();
     super.dispose();
   }
 
@@ -92,8 +106,9 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
             ),
             const SizedBox(height: _fieldSpacing),
 
-            // Авто — inline или dropdown
+            // Авто — autocomplete (поиск) или inline (создание)
             if (_isInlineVehicle) ...[
+              _sectionLabel('Новое авто'),
               TextField(
                 controller: _makeCtrl,
                 decoration: const InputDecoration(labelText: 'Марка авто *'),
@@ -107,30 +122,47 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
               const SizedBox(height: _fieldSpacing),
               TextField(
                 controller: _plateCtrl,
-                decoration: const InputDecoration(labelText: 'Госномер *'),
+                decoration: const InputDecoration(labelText: 'Госномер'),
+                textCapitalization: TextCapitalization.characters,
+              ),
+              const SizedBox(height: _fieldSpacing),
+              TextField(
+                controller: _vinCtrl,
+                decoration: const InputDecoration(labelText: 'VIN номер'),
                 textCapitalization: TextCapitalization.characters,
               ),
               if (widget.vehicles.isNotEmpty) ...[
                 const SizedBox(height: _fieldSpacing),
                 TextButton.icon(
-                  icon: const Icon(Icons.list, size: 18),
+                  icon: const Icon(Icons.search, size: 18),
                   label: const Text('Выбрать из каталога'),
                   onPressed: () => setState(() => _isInlineVehicle = false),
                 ),
               ],
             ] else ...[
-              _styledDropdown(
-                label: 'Авто',
-                value: _vehicleId.isEmpty ? null : _vehicleId,
-                items: widget.vehicles
-                    .map((v) => DropdownMenuItem(value: v.id, child: Text(v.displayLabel)))
-                    .toList(),
-                onChanged: (v) => setState(() => _vehicleId = v ?? ''),
+              _sectionLabel('Авто (поиск или создать новое)'),
+              _vehicleAutocomplete(),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _makeCtrl,
+                decoration: const InputDecoration(labelText: 'Марка (для нового авто)'),
               ),
-              TextButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Новое авто'),
-                onPressed: () => setState(() => _isInlineVehicle = true),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _modelCtrl,
+                decoration: const InputDecoration(labelText: 'Модель'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _plateCtrl,
+                decoration: const InputDecoration(labelText: 'Госномер'),
+                textCapitalization: TextCapitalization.characters,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _vinCtrl,
+                decoration: const InputDecoration(labelText: 'VIN номер'),
+                textCapitalization: TextCapitalization.characters,
               ),
             ],
             const SizedBox(height: _fieldSpacing),
@@ -313,6 +345,93 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
     );
   }
 
+  Widget _vehicleAutocomplete() {
+    return Autocomplete<Vehicle>(
+      initialValue: _selectedVehicle != null
+          ? TextEditingValue(text: _selectedVehicle!.displayLabel)
+          : const TextEditingValue(),
+      displayStringForOption: (v) => v.displayLabel,
+      optionsBuilder: (textEditingValue) {
+        final query = textEditingValue.text.toLowerCase().trim();
+        if (query.isEmpty) {
+          return widget.vehicles.where((v) => v.id.isNotEmpty);
+        }
+        return widget.vehicles.where((v) {
+          return v.make.toLowerCase().contains(query) ||
+              v.model.toLowerCase().contains(query) ||
+              v.plate.toLowerCase().contains(query) ||
+              v.vin.toLowerCase().contains(query) ||
+              v.customerName.toLowerCase().contains(query) ||
+              v.customerPhone.toLowerCase().contains(query);
+        });
+      },
+      onSelected: (vehicle) {
+        setState(() {
+          _selectedVehicle = vehicle;
+          _vehicleId = vehicle.id;
+          // Очищаем поля "нового авто" — выбран существующий
+          _makeCtrl.clear();
+          _modelCtrl.clear();
+          _plateCtrl.clear();
+          _vinCtrl.clear();
+        });
+      },
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onSubmitted: (_) => onSubmitted(),
+          decoration: InputDecoration(
+            labelText: 'Поиск авто (марка, модель, госномер, VIN)',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: controller.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      controller.clear();
+                      setState(() {
+                        _selectedVehicle = null;
+                        _vehicleId = '';
+                      });
+                    },
+                  )
+                : null,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final vehicle = options.elementAt(index);
+                  return ListTile(
+                    leading: const Icon(Icons.directions_car),
+                    title: Text(vehicle.displayLabel),
+                    subtitle: Text(
+                      [
+                        if (vehicle.customerName.isNotEmpty) vehicle.customerName,
+                        if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
+                      ].join(' • '),
+                    ),
+                    onTap: () => onSelected(vehicle),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart ? _start : _end;
     final date = await showDatePicker(
@@ -390,8 +509,8 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
         _snack('Введите марку или госномер авто');
         return;
       }
-    } else if (_vehicleId.isEmpty) {
-      _snack('Выберите авто');
+    } else if (_vehicleId.isEmpty && _makeCtrl.text.trim().isEmpty) {
+      _snack('Выберите авто через поиск или введите марку нового');
       return;
     }
     if (!_end.isAfter(_start)) {
@@ -406,7 +525,8 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
 
     String vehicleId = _vehicleId;
 
-    if (_isInlineVehicle) {
+    // Если заполнена марка — создаём новое авто (приоритет над autocomplete)
+    if (_makeCtrl.text.trim().isNotEmpty) {
       try {
         final catApi = ref.read(catalogApiProvider);
         final newV = await catApi.createVehicle(Vehicle(
@@ -415,6 +535,7 @@ class _AppointmentEditDialogState extends ConsumerState<AppointmentEditDialog> {
           make: _makeCtrl.text.trim(),
           model: _modelCtrl.text.trim(),
           plate: _plateCtrl.text.trim().toUpperCase(),
+          vin: _vinCtrl.text.trim().toUpperCase(),
         ));
         vehicleId = newV.id;
       } catch (e) {

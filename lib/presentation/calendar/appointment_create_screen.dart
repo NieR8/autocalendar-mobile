@@ -8,7 +8,7 @@ import '../../data/api/catalog_api.dart';
 import '../../data/models/appointment_models.dart' as models;
 import '../../data/models/catalog_models.dart';
 
-/// РЎС‚СЂР°РЅРёС†Р° СЃРѕР·РґР°РЅРёСЏ/СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ Р·Р°РїРёСЃРё.
+/// Страница создания/редактирования записи.
 class AppointmentCreateScreen extends ConsumerStatefulWidget {
   final List<Bay> bays;
   final List<Vehicle> vehicles;
@@ -34,10 +34,13 @@ class _AppointmentCreateScreenState
   late DateTime _endAt;
   String _bayId = '';
   String _vehicleId = '';
+  Vehicle? _selectedVehicle;
   String _status = 'planned';
 
   late final TextEditingController _makeCtrl;
   late final TextEditingController _modelCtrl;
+  late final TextEditingController _plateCtrl;
+  late final TextEditingController _vinCtrl;
   late final TextEditingController _clientNameCtrl;
   late final TextEditingController _clientPhoneCtrl;
   late final TextEditingController _reasonCtrl;
@@ -59,6 +62,8 @@ class _AppointmentCreateScreenState
 
     _makeCtrl = TextEditingController();
     _modelCtrl = TextEditingController();
+    _plateCtrl = TextEditingController();
+    _vinCtrl = TextEditingController();
     _clientNameCtrl = TextEditingController();
     _clientPhoneCtrl = TextEditingController();
     _reasonCtrl = TextEditingController();
@@ -69,20 +74,26 @@ class _AppointmentCreateScreenState
       if (noteParts.isNotEmpty) _reasonCtrl.text = noteParts[0];
       if (noteParts.length > 1) _noteCtrl.text = noteParts.sublist(1).join(' | ');
 
-      // РС‰РµРј Р°РІС‚Рѕ РІ РєР°С‚Р°Р»РѕРіРµ. Р•СЃР»Рё РЅР°Р№РґРµРЅРѕ вЂ” СЌС‚Рѕ СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРµ Р°РІС‚Рѕ,
-      // РїРѕР»СЏ "РґР»СЏ РЅРѕРІРѕРіРѕ Р°РІС‚Рѕ" РѕСЃС‚Р°РІР»СЏРµРј РџРЈРЎРўР«РњР (fix: РґСѓР±Р»РёРєР°С‚С‹ РІ РєР°С‚Р°Р»РѕРіРµ).
-      // Р•СЃР»Рё РќР• РЅР°Р№РґРµРЅРѕ (edge case) вЂ” Р·Р°РїРѕР»РЅСЏРµРј РїРѕР»СЏ РёР· appt.
+      // Ищем авто в каталоге. Если найдено — это уже существующее авто,
+      // поля "для нового авто" оставляем ПУСТЫМИ (fix: дубликаты в каталоге).
+      // Если НЕ найдено (edge case) — заполняем поля из appt.
       final vIdx = widget.vehicles.indexWhere((v) => v.id == a.vehicleId);
       if (vIdx >= 0) {
-        // РђРІС‚Рѕ СѓР¶Рµ РІ РєР°С‚Р°Р»РѕРіРµ вЂ” РЅРёС‡РµРіРѕ РЅРµ РґСѓР±Р»РёСЂСѓРµРј РІ РїРѕР»СЏ
+        // Авто уже в каталоге — выбираем его в autocomplete
+        _selectedVehicle = widget.vehicles[vIdx];
         _makeCtrl.text = '';
         _modelCtrl.text = '';
+        _plateCtrl.text = '';
+        _vinCtrl.text = '';
         _clientNameCtrl.text = '';
         _clientPhoneCtrl.text = '';
       } else {
-        // РђРІС‚Рѕ РЅРµ РІ РєР°С‚Р°Р»РѕРіРµ (legacy/orphaned) вЂ” Р·Р°РїРѕР»РЅСЏРµРј РїРѕР»СЏ РєР°Рє "РЅРѕРІРѕРµ"
+        // Авто не в каталоге (legacy/orphaned) — заполняем поля как "новое"
+        _selectedVehicle = null;
         _makeCtrl.text = '';
         _modelCtrl.text = '';
+        _plateCtrl.text = '';
+        _vinCtrl.text = '';
         _clientNameCtrl.text = '';
         _clientPhoneCtrl.text = '';
       }
@@ -93,6 +104,8 @@ class _AppointmentCreateScreenState
   void dispose() {
     _makeCtrl.dispose();
     _modelCtrl.dispose();
+    _plateCtrl.dispose();
+    _vinCtrl.dispose();
     _clientNameCtrl.dispose();
     _clientPhoneCtrl.dispose();
     _reasonCtrl.dispose();
@@ -121,7 +134,7 @@ class _AppointmentCreateScreenState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _isEdit ? 'РР·РјРµРЅРёС‚СЊ Р·Р°РїРёСЃСЊ' : 'РќРѕРІР°СЏ Р·Р°РїРёСЃСЊ',
+                    _isEdit ? 'Изменить запись' : 'Новая запись',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -152,7 +165,7 @@ class _AppointmentCreateScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _sectionLabel('РќР°С‡Р°Р»Рѕ'),
+                    _sectionLabel('Начало'),
                     Row(
                       children: [
                         Expanded(child: _dateTile(_startAt, isStart: true)),
@@ -162,7 +175,7 @@ class _AppointmentCreateScreenState
                     ),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РљРѕРЅРµС†'),
+                    _sectionLabel('Конец'),
                     Row(
                       children: [
                         Expanded(child: _dateTile(_endAt, isStart: false)),
@@ -172,7 +185,7 @@ class _AppointmentCreateScreenState
                     ),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РџРѕСЃС‚'),
+                    _sectionLabel('Пост'),
                     DropdownMenu<String>(
                       width: 300,
                       initialSelection: _bayId.isEmpty ? null : _bayId,
@@ -192,53 +205,30 @@ class _AppointmentCreateScreenState
                     ),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РђРІС‚Рѕ'),
-                    DropdownMenu<String>(
-                      width: 300,
-                      initialSelection: _vehicleId.isEmpty ? null : _vehicleId,
-                      onSelected: (v) {
-                        setState(() {
-                          _vehicleId = v ?? '';
-                          // FIX: РІС‹Р±РёСЂР°Р» СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРµ Р°РІС‚Рѕ в†’ РѕС‡РёСЃС‚РёРј РїРѕР»СЏ "РЅРѕРІРѕРіРѕ"
-                          // (РёРЅР°С‡Рµ РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РјРѕРіСѓС‚ РїРµСЂРµР·Р°РїРёСЃР°С‚СЊСЃСЏ РґР°РЅРЅС‹Рµ
-                          // РІ РєР°С‚Р°Р»РѕРіРµ вЂ” РєРѕСЂРµРЅСЊ Р±Р°РіР° РґСѓР±Р»РёРєР°С‚РѕРІ)
-                          if (v != null && v.isNotEmpty) {
-                            _makeCtrl.clear();
-                            _modelCtrl.clear();
-                            _clientNameCtrl.clear();
-                            _clientPhoneCtrl.clear();
-                          }
-                        });
-                      },
-                      textStyle: TextStyle(
-                        fontSize: 15,
-                        color: AppTheme.textOf(context),
-                      ),
-                      dropdownMenuEntries: widget.vehicles
-                          .map((v) => DropdownMenuEntry<String>(
-                                value: v.id,
-                                label: v.displayLabel,
-                              ))
-                          .toList(),
-                    ),
+                    _sectionLabel('Авто (поиск или создать новое)'),
+                    _vehicleAutocomplete(),
                     const SizedBox(height: 8),
-                    _textField(_makeCtrl, 'РњР°СЂРєР° (РґР»СЏ РЅРѕРІРѕРіРѕ Р°РІС‚Рѕ)'),
+                    _textField(_makeCtrl, 'Марка (для нового авто)'),
                     const SizedBox(height: 8),
-                    _textField(_modelCtrl, 'РњРѕРґРµР»СЊ'),
+                    _textField(_modelCtrl, 'Модель'),
+                    const SizedBox(height: 8),
+                    _textField(_plateCtrl, 'Госномер'),
+                    const SizedBox(height: 8),
+                    _textField(_vinCtrl, 'VIN номер'),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РљР»РёРµРЅС‚'),
-                    _textField(_clientNameCtrl, 'РРјСЏ РєР»РёРµРЅС‚Р°'),
+                    _sectionLabel('Клиент'),
+                    _textField(_clientNameCtrl, 'Имя клиента'),
                     const SizedBox(height: 8),
-                    _textField(_clientPhoneCtrl, 'РўРµР»РµС„РѕРЅ',
+                    _textField(_clientPhoneCtrl, 'Телефон',
                         keyboardType: TextInputType.phone),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РџСЂРёС‡РёРЅР° РѕР±СЂР°С‰РµРЅРёСЏ'),
-                    _textField(_reasonCtrl, 'Р§С‚Рѕ РЅСѓР¶РЅРѕ СЃРґРµР»Р°С‚СЊ', maxLines: 3),
+                    _sectionLabel('Причина обращения'),
+                    _textField(_reasonCtrl, 'Что нужно сделать', maxLines: 3),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РЎС‚Р°С‚СѓСЃ'),
+                    _sectionLabel('Статус'),
                     DropdownMenu<String>(
                       width: 300,
                       initialSelection: _status,
@@ -248,15 +238,15 @@ class _AppointmentCreateScreenState
                         color: AppTheme.textOf(context),
                       ),
                       dropdownMenuEntries: const [
-                        DropdownMenuEntry(value: 'planned', label: 'Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅРѕ'),
-                        DropdownMenuEntry(value: 'in_progress', label: 'Р’ СЂР°Р±РѕС‚Рµ'),
-                        DropdownMenuEntry(value: 'ready', label: 'Р“РѕС‚РѕРІРѕ'),
+                        DropdownMenuEntry(value: 'planned', label: 'Запланировано'),
+                        DropdownMenuEntry(value: 'in_progress', label: 'В работе'),
+                        DropdownMenuEntry(value: 'ready', label: 'Готово'),
                       ],
                     ),
                     const SizedBox(height: _fieldSpacing),
 
-                    _sectionLabel('РџСЂРёРјРµС‡Р°РЅРёРµ'),
-                    _textField(_noteCtrl, 'Р”РѕРї. РєРѕРјРјРµРЅС‚Р°СЂРёРё', maxLines: 2),
+                    _sectionLabel('Примечание'),
+                    _textField(_noteCtrl, 'Доп. комментарии', maxLines: 2),
                     const SizedBox(height: 32),
 
                     FilledButton(
@@ -265,7 +255,7 @@ class _AppointmentCreateScreenState
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
-                        _isEdit ? 'РЎРѕС…СЂР°РЅРёС‚СЊ' : 'РЎРѕР·РґР°С‚СЊ Р·Р°РїРёСЃСЊ',
+                        _isEdit ? 'Сохранить' : 'Создать запись',
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
@@ -277,7 +267,7 @@ class _AppointmentCreateScreenState
                           foregroundColor: AppTheme.danger,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text('РЈРґР°Р»РёС‚СЊ Р·Р°РїРёСЃСЊ', style: TextStyle(fontSize: 15)),
+                        child: const Text('Удалить запись', style: TextStyle(fontSize: 15)),
                       ),
                     ],
                     const SizedBox(height: 24),
@@ -369,6 +359,95 @@ class _AppointmentCreateScreenState
     );
   }
 
+  Widget _vehicleAutocomplete() {
+    return Autocomplete<Vehicle>(
+      initialValue: _selectedVehicle != null
+          ? TextEditingValue(text: _selectedVehicle!.displayLabel)
+          : const TextEditingValue(),
+      displayStringForOption: (v) => v.displayLabel,
+      optionsBuilder: (textEditingValue) {
+        final query = textEditingValue.text.toLowerCase().trim();
+        if (query.isEmpty) {
+          return widget.vehicles.where((v) => v.id.isNotEmpty);
+        }
+        return widget.vehicles.where((v) {
+          return v.make.toLowerCase().contains(query) ||
+              v.model.toLowerCase().contains(query) ||
+              v.plate.toLowerCase().contains(query) ||
+              v.vin.toLowerCase().contains(query) ||
+              v.customerName.toLowerCase().contains(query) ||
+              v.customerPhone.toLowerCase().contains(query);
+        });
+      },
+      onSelected: (vehicle) {
+        setState(() {
+          _selectedVehicle = vehicle;
+          _vehicleId = vehicle.id;
+          // Очищаем поля "нового авто" — выбран существующий
+          _makeCtrl.clear();
+          _modelCtrl.clear();
+          _plateCtrl.clear();
+          _vinCtrl.clear();
+          _clientNameCtrl.clear();
+          _clientPhoneCtrl.clear();
+        });
+      },
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          onSubmitted: (_) => onSubmitted(),
+          decoration: InputDecoration(
+            labelText: 'Поиск авто (марка, модель, госномер, VIN)',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: controller.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      controller.clear();
+                      setState(() {
+                        _selectedVehicle = null;
+                        _vehicleId = '';
+                      });
+                    },
+                  )
+                : null,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final vehicle = options.elementAt(index);
+                  return ListTile(
+                    leading: const Icon(Icons.directions_car),
+                    title: Text(vehicle.displayLabel),
+                    subtitle: Text(
+                      [
+                        if (vehicle.customerName.isNotEmpty) vehicle.customerName,
+                        if (vehicle.vin.isNotEmpty) 'VIN: ${vehicle.vin}',
+                      ].join(' • '),
+                    ),
+                    onTap: () => onSelected(vehicle),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart ? _startAt : _endAt;
     final date = await showDatePicker(
@@ -395,13 +474,13 @@ class _AppointmentCreateScreenState
     setState(() {
       if (isStart) {
         _startAt = DateTime(date.year, date.month, date.day, _startAt.hour, _startAt.minute);
-        // Р•СЃР»Рё end <= start вЂ” Р°РІС‚Рѕ-СЃРґРІРёРіР°РµРј
+        // Если end <= start — авто-сдвигаем
         if (!_endAt.isAfter(_startAt)) {
           _endAt = _startAt.add(const Duration(hours: 1));
         }
       } else {
         _endAt = DateTime(date.year, date.month, date.day, _endAt.hour, _endAt.minute);
-        // Р•СЃР»Рё end СЃС‚Р°Р» <= start вЂ” Р°РІС‚Рѕ-СЃРґРІРёРіР°РµРј end РЅР° +1 РґРµРЅСЊ
+        // Если end стал <= start — авто-сдвигаем end на +1 день
         if (!_endAt.isAfter(_startAt)) {
           _endAt = _endAt.add(const Duration(days: 1));
         }
@@ -415,7 +494,7 @@ class _AppointmentCreateScreenState
       context: context,
       builder: (context) => TimeInputDialog(
         initialTime: TimeOfDay.fromDateTime(initial),
-        label: isStart ? 'Р’СЂРµРјСЏ РЅР°С‡Р°Р»Р°' : 'Р’СЂРµРјСЏ РѕРєРѕРЅС‡Р°РЅРёСЏ',
+        label: isStart ? 'Время начала' : 'Время окончания',
       ),
     );
     if (result == null) return;
@@ -429,12 +508,12 @@ class _AppointmentCreateScreenState
     setState(() {
       if (isStart) {
         _startAt = newDt;
-        // Р•СЃР»Рё end <= start вЂ” Р°РІС‚Рѕ-СЃРґРІРёРіР°РµРј
+        // Если end <= start — авто-сдвигаем
         if (!_endAt.isAfter(_startAt)) {
           _endAt = _startAt.add(const Duration(hours: 1));
         }
       } else {
-        // РђРІС‚Рѕ-СЃРґРІРёРі: РµСЃР»Рё РІСЂРµРјСЏ СЂР°РЅСЊС€Рµ РЅР°С‡Р°Р»Р° РЅР° С‚РѕР№ Р¶Рµ РґР°С‚Рµ вЂ” +1 РґРµРЅСЊ
+        // Авто-сдвиг: если время раньше начала на той же дате — +1 день
         if (initial.year == _startAt.year &&
             initial.month == _startAt.month &&
             initial.day == _startAt.day &&
@@ -448,48 +527,48 @@ class _AppointmentCreateScreenState
   }
 
   IconData _bayIcon(int index) {
-    // Р’СЃРµ РїРѕСЃС‚С‹ вЂ” РїРѕРґСЉС‘РјРЅРёРєРё, РѕРґРЅР° РёРєРѕРЅРєР°.
+    // Все посты — подъёмники, одна иконка.
     return Icons.car_repair;
   }
 
   void _submit() async {
     if (_bayId.isEmpty) {
-      _snack('Р’С‹Р±РµСЂРёС‚Рµ РїРѕСЃС‚');
+      _snack('Выберите пост');
       return;
     }
     if (_vehicleId.isEmpty && _makeCtrl.text.trim().isEmpty) {
-      _snack('Р’С‹Р±РµСЂРёС‚Рµ Р°РІС‚Рѕ РёР· СЃРїРёСЃРєР° РёР»Рё РІРІРµРґРёС‚Рµ РјР°СЂРєСѓ РЅРѕРІРѕРіРѕ');
+      _snack('Выберите авто через поиск или введите марку нового');
       return;
     }
     if (!_endAt.isAfter(_startAt)) {
-      _snack('РљРѕРЅРµС† РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РїРѕР·Р¶Рµ РЅР°С‡Р°Р»Р°');
+      _snack('Конец должен быть позже начала');
       return;
     }
     final duration = _endAt.difference(_startAt);
     if (duration.inDays > 7 || (duration.inDays == 7 && duration.inMinutes % (24 * 60) > 0)) {
-      _snack('РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ СЂРµРјРѕРЅС‚Р° вЂ” 7 РґРЅРµР№');
+      _snack('Максимальная длительность ремонта — 7 дней');
       return;
     }
 
     String vehicleId = _vehicleId;
 
-    // Р›РѕРіРёРєР° РІС‹Р±РѕСЂР° Р°РІС‚Рѕ:
-    //   1) Р•СЃР»Рё Р·Р°РїРѕР»РЅРµРЅР° РјР°СЂРєР° РІ РїРѕР»Рµ "РґР»СЏ РЅРѕРІРѕРіРѕ Р°РІС‚Рѕ" в†’ РёС‰РµРј СЃРѕРІРїР°РґРµРЅРёРµ
-    //      РїРѕ РјР°СЂРєРµ Р‘Р•Р— СѓС‡С‘С‚Р° СЂРµРіРёСЃС‚СЂР°. РќР°С€Р»Рё вЂ” РёСЃРїРѕР»СЊР·СѓРµРј СЌС‚Рѕ Р°РІС‚Рѕ
-    //      (РЅРµ РёР·РјРµРЅСЏРµРј РµРіРѕ РґР°РЅРЅС‹Рµ). РќРµ РЅР°С€Р»Рё вЂ” СЃРѕР·РґР°С‘Рј РЅРѕРІРѕРµ.
-    //   2) РРЅР°С‡Рµ, РµСЃР»Рё РІС‹Р±СЂР°РЅ Р°РІС‚Рѕ РІ dropdown в†’ РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ ID.
-    // РџСЂРёРѕСЂРёС‚РµС‚ Сѓ РїРѕР»СЏ РјР°СЂРєРё: РµСЃР»Рё Рё dropdown РІС‹Р±СЂР°РЅ, Рё РјР°СЂРєР° Р·Р°РїРѕР»РЅРµРЅР° вЂ”
-    // РјР°СЂРєР° РїРѕР±РµР¶РґР°РµС‚ (СЌС‚Рѕ СЏРІРЅС‹Р№ РІРІРѕРґ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ "С…РѕС‡Сѓ СЌС‚Рѕ Р°РІС‚Рѕ").
+    // Логика выбора авто:
+    //   1) Если заполнена марка в поле "для нового авто" → ищем совпадение
+    //      по марке БЕЗ учёта регистра. Нашли — используем это авто
+    //      (не изменяем его данные). Не нашли — создаём новое.
+    //   2) Иначе, если выбран авто в autocomplete → используем его ID.
+    // Приоритет у поля марки: если и autocomplete выбран, и марка заполнена —
+    // марка побеждает (это явный ввод пользователя "хочу это авто").
     if (_makeCtrl.text.trim().isNotEmpty) {
       final makeToFind = _makeCtrl.text.trim().toLowerCase();
       final existingIdx = widget.vehicles.indexWhere(
         (v) => v.make.toLowerCase() == makeToFind,
       );
       if (existingIdx >= 0) {
-        // Р•СЃС‚СЊ Р°РІС‚Рѕ СЃ С‚Р°РєРѕР№ РјР°СЂРєРѕР№ вЂ” РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ Р‘Р•Р— РёР·РјРµРЅРµРЅРёСЏ РґР°РЅРЅС‹С….
+        // Есть авто с такой маркой — используем его БЕЗ изменения данных.
         vehicleId = widget.vehicles[existingIdx].id;
       } else {
-        // РђРІС‚Рѕ СЃ С‚Р°РєРѕР№ РјР°СЂРєРѕР№ РЅРµС‚ вЂ” СЃРѕР·РґР°С‘Рј РЅРѕРІРѕРµ.
+        // Авто с такой маркой нет — создаём новое.
         try {
           final catApi = ref.read(catalogApiProvider);
           final newV = await catApi.createVehicle(Vehicle(
@@ -497,17 +576,19 @@ class _AppointmentCreateScreenState
             shopId: widget.existingAppointment?.shopId ?? '',
             make: _makeCtrl.text.trim(),
             model: _modelCtrl.text.trim(),
+            plate: _plateCtrl.text.trim(),
+            vin: _vinCtrl.text.trim(),
             customerName: _clientNameCtrl.text.trim(),
             customerPhone: _clientPhoneCtrl.text.trim(),
           ));
           vehicleId = newV.id;
         } catch (e) {
-          _snack('РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ Р°РІС‚Рѕ: $e');
+          _snack('Ошибка сохранения авто: $e');
           return;
         }
       }
     }
-    // РРЅР°С‡Рµ (_makeCtrl РїСѓСЃС‚) вЂ” РёСЃРїРѕР»СЊР·СѓРµРј _vehicleId РёР· dropdown.
+    // Иначе (_makeCtrl пуст) — используем _vehicleId из autocomplete.
 
     if (!mounted) return;
 
@@ -536,9 +617,9 @@ class _AppointmentCreateScreenState
   }
 }
 
-/// Р”РёР°Р»РѕРі СЂСѓС‡РЅРѕРіРѕ РІРІРѕРґР° РІСЂРµРјРµРЅРё С‡РµСЂРµР· TextField.
-/// Р¤РѕСЂРјР°С‚: Р§Р§:РњРњ (24-С‡Р°СЃРѕРІРѕР№ С„РѕСЂРјР°С‚, HH:MM).
-/// Р’Р°Р»РёРґР°С†РёСЏ: 00-23:00-59. Enter РїСЂРёРјРµРЅСЏРµС‚. РљРЅРѕРїРєР° "Р“РѕС‚РѕРІРѕ" С‚РѕР¶Рµ РїСЂРёРјРµРЅСЏРµС‚.
+/// Диалог ручного ввода времени через TextField.
+/// Формат: ЧЧ:ММ (24-часовой формат, HH:MM).
+/// Валидация: 00-23:00-59. Enter применяет. Кнопка "Готово" тоже применяет.
 class TimeInputDialog extends StatefulWidget {
   final TimeOfDay initialTime;
   final String label;
@@ -563,7 +644,7 @@ class TimeInputDialogState extends State<TimeInputDialog> {
     final h = widget.initialTime.hour.toString().padLeft(2, '0');
     final m = widget.initialTime.minute.toString().padLeft(2, '0');
     _ctrl = TextEditingController(text: '$h:$m');
-    // РђРІС‚Рѕ-С„РѕРєСѓСЃ + РІС‹РґРµР»РµРЅРёРµ С‚РµРєСЃС‚Р°
+    // Авто-фокус + выделение текста
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
       _ctrl.selection = TextSelection(
@@ -582,10 +663,10 @@ class TimeInputDialogState extends State<TimeInputDialog> {
 
   TimeOfDay? _validate(String value) {
     final trimmed = value.trim();
-    // Р Р°Р·СЂРµС€Р°РµРј "9:30" в†’ РґРѕРїРѕР»РЅСЏРµРј РґРѕ "09:30"
+    // Разрешаем "9:30" → дополняем до "09:30"
     final parts = trimmed.split(':');
     if (parts.length != 2) {
-      setState(() => _error = 'Р¤РѕСЂРјР°С‚: Р§Р§:РњРњ (РЅР°РїСЂРёРјРµСЂ 14:30)');
+      setState(() => _error = 'Формат: ЧЧ:ММ (например 14:30)');
       return null;
     }
     final hStr = parts[0].padLeft(2, '0');
@@ -593,15 +674,15 @@ class TimeInputDialogState extends State<TimeInputDialog> {
     final h = int.tryParse(hStr);
     final m = int.tryParse(mStr);
     if (h == null || m == null) {
-      setState(() => _error = 'РўРѕР»СЊРєРѕ С†РёС„СЂС‹');
+      setState(() => _error = 'Только цифры');
       return null;
     }
     if (h < 0 || h > 23) {
-      setState(() => _error = 'Р§Р°СЃС‹: 00-23');
+      setState(() => _error = 'Часы: 00-23');
       return null;
     }
     if (m < 0 || m > 59) {
-      setState(() => _error = 'РњРёРЅСѓС‚С‹: 00-59');
+      setState(() => _error = 'Минуты: 00-59');
       return null;
     }
     return TimeOfDay(hour: h, minute: m);
@@ -629,7 +710,7 @@ class TimeInputDialogState extends State<TimeInputDialog> {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
-              hintText: 'Р§Р§:РњРњ',
+              hintText: 'ЧЧ:ММ',
               errorText: _error,
               counterText: '',
             ),
@@ -642,7 +723,7 @@ class TimeInputDialogState extends State<TimeInputDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '24-С‡Р°СЃРѕРІРѕР№ С„РѕСЂРјР°С‚ (00:00 вЂ“ 23:59)',
+            '24-часовой формат (00:00 – 23:59)',
             style: TextStyle(
               fontSize: 12,
               color: AppTheme.textMuteOf(context),
@@ -654,45 +735,45 @@ class TimeInputDialogState extends State<TimeInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('РћС‚РјРµРЅР°'),
+          child: const Text('Отмена'),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Р“РѕС‚РѕРІРѕ'),
+          child: const Text('Готово'),
         ),
       ],
     );
   }
 }
 
-/// Formatter: Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РґРѕР±Р°РІР»СЏРµС‚ ":" РјРµР¶РґСѓ С†РёС„СЂР°РјРё.
-/// Р Р°Р·СЂРµС€Р°РµС‚ С‚РѕР»СЊРєРѕ С†РёС„СЂС‹ Рё РґРІРѕРµС‚РѕС‡РёРµ. РњР°РєСЃРёРјСѓРј "HH:MM" (5 СЃРёРјРІРѕР»РѕРІ).
+/// Formatter: автоматически добавляет ":" между цифрами.
+/// Разрешает только цифры и двоеточие. Максимум "HH:MM" (5 символов).
 class TimeInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // РЈРґР°Р»СЏРµРј РІСЃС‘ РєСЂРѕРјРµ С†РёС„СЂ Рё ":"
+    // Удаляем всё кроме цифр и ":"
     var text = newValue.text.replaceAll(RegExp(r'[^0-9:]'), '');
 
-    // РњР°РєСЃРёРјСѓРј 5 СЃРёРјРІРѕР»РѕРІ (HH:MM)
+    // Максимум 5 символов (HH:MM)
     if (text.length > 5) text = text.substring(0, 5);
 
-    // РќРµ РґРѕРїСѓСЃРєР°РµРј Р±РѕР»СЊС€Рµ РѕРґРЅРѕРіРѕ ":"
+    // Не допускаем больше одного ":"
     final colonCount = ':'.allMatches(text).length;
     if (colonCount > 1) {
-      // Р‘РµСЂС‘Рј С‚РѕР»СЊРєРѕ РїРµСЂРІРѕРµ РґРІРѕРµС‚РѕС‡РёРµ
+      // Берём только первое двоеточие
       final idx = text.indexOf(':');
       text = text.substring(0, idx + 1) + text.substring(idx + 1).replaceAll(':', '');
     }
 
-    // Р•СЃР»Рё СѓР¶Рµ 2 С†РёС„СЂС‹ Рё РЅРµС‚ ":" вЂ” РґРѕР±Р°РІР»СЏРµРј
+    // Если уже 2 цифры и нет ":" — добавляем
     if (text.length == 2 && !text.contains(':')) {
       text = '$text:';
     }
 
-    // Р’Р°Р»РёРґР°С†РёСЏ С‡Р°СЃРѕРІ (0-23)
+    // Валидация часов (0-23)
     final parts = text.split(':');
     if (parts.isNotEmpty && parts[0].length >= 1) {
       final h = int.tryParse(parts[0]);
@@ -700,7 +781,7 @@ class TimeInputFormatter extends TextInputFormatter {
         parts[0] = '23';
       }
     }
-    // Р’Р°Р»РёРґР°С†РёСЏ РјРёРЅСѓС‚ (0-59)
+    // Валидация минут (0-59)
     if (parts.length >= 2 && parts[1].length >= 1) {
       final m = int.tryParse(parts[1]);
       if (m != null && m > 59) {
